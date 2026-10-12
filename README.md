@@ -1,6 +1,6 @@
 # Game Protection Kit for Unity
 
-**Find out when your game is stolen, keep your demo from becoming someone else's "full game", and have the evidence ready for a takedown.**
+**Protect any Unity game from theft: detect stolen, re-uploaded and repackaged copies, ship builds that are harder to rip, and prove ownership when a clone appears.**
 
 Indie games and demos are being decompiled, extended (increasingly with AI), and re-uploaded to Steam, mobile stores and web portals, sometimes with ads injected or malware attached. No client-side protection is unbreakable, and this kit doesn't pretend otherwise. It makes your game a worse target than the one next to it, catches the lazy majority of thieves automatically, and keeps the mistakes that make theft easy out of your builds.
 

@@ -2,7 +2,7 @@
   "name": "com.OWNER.game-protection-kit",
   "version": "0.1.0",
   "displayName": "Game Protection Kit",
-  "description": "Detects re-uploaded, re-signed and rehosted copies of your Unity game, and stops demo builds from leaking full-game content. Build stamping for leak tracing, IL2CPP enforcement, one-click setup. No DRM: never blocks legit players, sends no data by default.",
+  "description": "Protects Unity games from theft: detects re-uploaded, re-signed and rehosted copies, enforces safer builds (IL2CPP, no leaked content or symbols), embeds an ownership canary that survives asset ripping, and scans suspected clones for evidence. One-click setup. No DRM: never blocks legit players, sends no data by default.",
   "unity": "2021.3",
   "documentationUrl": "https://github.com/OWNER/unity-game-protection-kit#readme",
   "changelogUrl": "https://github.com/OWNER/unity-game-protection-kit/blob/main/CHANGELOG.md",
