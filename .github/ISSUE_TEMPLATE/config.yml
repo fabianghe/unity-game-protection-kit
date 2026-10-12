@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security issue
-    url: https://github.com/OWNER/unity-game-protection-kit/security/advisories/new
+    url: https://github.com/fabianghe/unity-game-protection-kit/security/advisories/new
     about: Report vulnerabilities privately, please.
   - name: Questions and takedown stories
-    url: https://github.com/OWNER/unity-game-protection-kit/discussions
+    url: https://github.com/fabianghe/unity-game-protection-kit/discussions
     about: Ask for help or share what happened to your game.

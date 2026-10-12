@@ -14,7 +14,7 @@ namespace GameProtection.Editor
         public const string EditorFolder = Root + "/Editor";
         public const string GeneratedResourcesFolder = Root + "/Generated/Resources";
         public const string SettingsPath = "Project/Game Protection";
-        public const string DocumentationUrl = "https://github.com/OWNER/unity-game-protection-kit#readme";
+        public const string DocumentationUrl = "https://github.com/fabianghe/unity-game-protection-kit#readme";
 
         [MenuItem("Tools/Game Protection/Setup", priority = 0)]
         public static void SetupFromMenu()

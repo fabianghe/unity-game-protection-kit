@@ -24,7 +24,7 @@ Thanks for helping indie devs protect their work.
 2. Clone this repo into the project's `Packages/` folder. Unity picks it up as an embedded package.
 3. To run tests, add the package to `testables` in `Packages/manifest.json`:
    ```json
-   "testables": ["com.OWNER.game-protection-kit"]
+   "testables": ["com.fabianghe.game-protection-kit"]
    ```
    then open **Window → General → Test Runner → EditMode**.
 

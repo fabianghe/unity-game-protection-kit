@@ -1,16 +1,16 @@
 {
-  "name": "com.OWNER.game-protection-kit",
+  "name": "com.fabianghe.game-protection-kit",
   "version": "0.1.0",
   "displayName": "Game Protection Kit",
   "description": "Protects Unity games from theft: detects re-uploaded, re-signed and rehosted copies, enforces safer builds (IL2CPP, no leaked content or symbols), embeds an ownership canary that survives asset ripping, and scans suspected clones for evidence. One-click setup. No DRM: never blocks legit players, sends no data by default.",
   "unity": "2021.3",
-  "documentationUrl": "https://github.com/OWNER/unity-game-protection-kit#readme",
-  "changelogUrl": "https://github.com/OWNER/unity-game-protection-kit/blob/main/CHANGELOG.md",
-  "licensesUrl": "https://github.com/OWNER/unity-game-protection-kit/blob/main/LICENSE.md",
+  "documentationUrl": "https://github.com/fabianghe/unity-game-protection-kit#readme",
+  "changelogUrl": "https://github.com/fabianghe/unity-game-protection-kit/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/fabianghe/unity-game-protection-kit/blob/main/LICENSE.md",
   "keywords": ["security", "anti-piracy", "anti-tamper", "integrity", "demo", "il2cpp", "steam", "android", "webgl"],
   "author": {
     "name": "Fabian",
-    "url": "https://github.com/OWNER"
+    "url": "https://github.com/fabianghe"
   },
   "samples": [
     {

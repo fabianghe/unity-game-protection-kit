@@ -65,7 +65,7 @@ See the [protection guide](Documentation~/GUIDE.md) for the full picture.
 **Package Manager → + → Add package from git URL…**
 
 ```
-https://github.com/OWNER/unity-game-protection-kit.git
+https://github.com/fabianghe/unity-game-protection-kit.git
 ```
 
 Pin a version with `#v0.1.0` at the end. Requires Unity 2021.3 or newer and is tested against Unity 6.
