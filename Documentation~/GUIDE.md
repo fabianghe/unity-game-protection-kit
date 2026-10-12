@@ -24,6 +24,8 @@ Options (check current compatibility with your Unity version):
 - **[Obfuscator Pro](https://assetstore.unity.com/packages/tools/utilities/obfuscator-pro-plug-and-play-code-protection-v2026-89589)** (GuardingPearSoftware): paid, mature. Renaming plus string encryption.
 - **[Mfuscator](https://assetstore.unity.com/packages/tools/utilities/mfuscator-il2cpp-encryption-256631)**: paid, focused on IL2CPP metadata encryption so automatic dumpers fail. Pair it with a renamer.
 
+The kit integrates BitMono: install it, re-validate in Project Settings → Game Protection, and click through the fixes. The kit also scans your project for Animation Events and Inspector-wired UnityEvents and writes them into BitMono's exclusion list, because those are the names no obfuscator can see from the code. Its Unity integration obfuscates `Assembly-CSharp` only; the validator names any asmdef of yours that would stay readable.
+
 **Obfuscation gotchas.** Exclude anything that is called by name:
 - `SendMessage` and `Invoke`
 - Animation Events

@@ -49,7 +49,7 @@ Results go to your analytics (optional), and a stolen copy can show its players 
 
 - **Demo leak guard.** Demo builds fail if they contain a non-demo scene, a scene that references full-game assets, or full-game content inside `Resources`. Locked content is still shipped content.
 - **IL2CPP enforcement.** Release builds fail on the Mono backend, which decompiles back to near-original C# in seconds.
-- **Obfuscation check.** Warns when no obfuscator is detected (IL2CPP alone leaves class and method names readable).
+- **Obfuscation, one click.** Warns when no obfuscator is detected (IL2CPP alone leaves class and method names readable) and integrates **BitMono** (free, open source): checks its config, enables `global-metadata.dat` encryption for IL2CPP, and writes **Unity-safe exclusions** (Animation Events, UnityEvents) into its config so an obfuscated build doesn't silently lose callbacks.
 - **"DoNotShip" cleanup.** IL2CPP's C++/symbols backup and Burst debug folders are moved out of the build so they never reach Steam.
 
 ### 4. Evidence: prove it's yours
@@ -68,7 +68,7 @@ Results go to your analytics (optional), and a stolen copy can show its players 
 https://github.com/fabianghe/unity-game-protection-kit.git
 ```
 
-Pin a version with `#v0.2.0` at the end. Requires Unity 2021.3 or newer; built against Unity 6.
+Pin a version with `#v0.3.0` at the end. Requires Unity 2021.3 or newer; built against Unity 6.
 
 ## Set up (5 minutes)
 
@@ -78,6 +78,14 @@ Pin a version with `#v0.2.0` at the end. Requires Unity 2021.3 or newer; built a
 4. For demos, add `GAME_DEMO` to your demo Build Profile's scripting defines.
 
 That's detection and build guards. Nothing runs until Setup has been done, so installing the package in a project changes nothing by itself.
+
+### Turn on obfuscation (BitMono)
+
+1. Download the UPM `.tgz` for your Unity version from [BitMono's releases](https://github.com/bitmono-project/BitMono/releases) and add it with **Package Manager → + → Add package from tarball**.
+2. **Project Settings → Game Protection → Re-validate**. Follow the fixes: enable obfuscation, enable metadata encryption (IL2CPP, Windows/Android), and **Add Unity-safe exclusions** (re-run it after adding new Animation Events or Inspector-wired UnityEvents).
+3. Build and play through the build. Obfuscation bugs only show up in builds, never in the editor.
+
+Note: BitMono's Unity integration obfuscates `Assembly-CSharp` only. The validator lists any of your own assembly definitions that would stay readable.
 
 ### Turn on Content Lock
 
@@ -124,6 +132,7 @@ Set `BUILD_CHANNEL` before building (CLI or CI), for example `BUILD_CHANNEL=pres
 | Steamworks.NET (`com.rlabrecque.steamworks.net`) | Steam App ID check, Steam ticket proof for Content Lock | Automatic for a Package Manager install; otherwise the validator offers a one-click define |
 | Addressables (`com.unity.addressables` 1.19+) | Encrypted AssetBundle Provider, automatic bundle encryption after content builds | Automatic |
 | Google Play Integrity plugin | Android proof for Content Lock Remote mode | Import the sample |
+| BitMono (`com.bitmono.unity`) | Obfuscation validation, metadata encryption toggle, Unity-safe exclusions | Automatic for the UPM .tgz; one-click define for the .unitypackage |
 | Firebase Analytics | Integrity telemetry | Import the sample |
 
 ---

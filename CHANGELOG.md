@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-12
+
+### Added
+- **BitMono integration** (optional module, auto-detected): validates BitMonoConfig, one-click fixes to enable obfuscation and IL2CPP `global-metadata.dat` encryption, "Get BitMono" fix when no obfuscator is installed.
+- **Unity-safe exclusions**: scans Animation Events (including clips inside models) and Inspector-wired UnityEvents, and merges the method names into BitMono's `criticals.json` between markers, idempotently, keeping BitMono's comments. Also available as `UnityNameScanner` for other obfuscators.
+- Validator lists your own runtime assembly definitions that BitMono's Assembly-CSharp-only integration leaves readable.
+- `ProtectionValidator.ExtraRules` for optional editor modules.
+
+### Changed
+- JSON DTOs (build stamp, key server responses) carry `[Obfuscation(Exclude = true)]` so any obfuscator leaves the wire format intact.
+
 ## [0.2.0] - 2026-10-12
 
 ### Added

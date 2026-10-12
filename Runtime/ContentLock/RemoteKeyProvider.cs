@@ -181,9 +181,10 @@ namespace GameProtection.Content
             catch (ArgumentException) { return null; }
         }
 
-        [Serializable] class NonceResponse { public string nonce; }
-        [Serializable] class KeyEntry { public string id; public string key; }
-        [Serializable] class KeyResponse { public KeyEntry[] keys; public long ttlSeconds; public string error; }
+        // Parsed by JsonUtility: field names are the wire format, so no obfuscator may rename them.
+        [Serializable, System.Reflection.Obfuscation(Exclude = true, ApplyToMembers = true)] class NonceResponse { public string nonce; }
+        [Serializable, System.Reflection.Obfuscation(Exclude = true, ApplyToMembers = true)] class KeyEntry { public string id; public string key; }
+        [Serializable, System.Reflection.Obfuscation(Exclude = true, ApplyToMembers = true)] class KeyResponse { public KeyEntry[] keys; public long ttlSeconds; public string error; }
     }
 
     /// <summary>Hidden coroutine host for the content lock.</summary>

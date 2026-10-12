@@ -1,0 +1,28 @@
+{
+    "name": "GameProtection.BitMono.Editor",
+    "rootNamespace": "GameProtection.Editor.BitMono",
+    "references": [
+        "GameProtection.Runtime",
+        "GameProtection.Editor",
+        "BitMono.Unity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "GAMEPROTECTION_BITMONO"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.bitmono.unity",
+            "expression": "",
+            "define": "GAMEPROTECTION_BITMONO"
+        }
+    ],
+    "noEngineReferences": false
+}

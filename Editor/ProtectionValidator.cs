@@ -34,6 +34,12 @@ namespace GameProtection.Editor
     {
         const string SteamworksAssembly = "com.rlabrecque.steamworks.net";
         const string SteamworksDefine = "GAMEPROTECTION_STEAMWORKS";
+        const string BitMonoDefine = "GAMEPROTECTION_BITMONO";
+        public const string BitMonoReleasesUrl = "https://github.com/bitmono-project/BitMono/releases";
+
+        /// <summary>Optional editor modules (BitMono, ...) add their validation rules here.</summary>
+        public static readonly List<Func<BuildTarget, bool, IEnumerable<ValidationIssue>>> ExtraRules =
+            new List<Func<BuildTarget, bool, IEnumerable<ValidationIssue>>>();
 
         public static List<ValidationIssue> Validate(BuildTarget target, bool isDevelopmentBuild = false)
         {
@@ -46,6 +52,7 @@ namespace GameProtection.Editor
                 .Concat(SteamworksRules(config, target))
                 .Concat(ObfuscationRules(guard, isDevelopmentBuild))
                 .Concat(ContentLockEditor.Validate(target, isDevelopmentBuild))
+                .Concat(ExtraRules.SelectMany(rule => rule(target, isDevelopmentBuild)))
                 .ToList();
         }
 
@@ -56,14 +63,30 @@ namespace GameProtection.Editor
         {
             if (isDevelopmentBuild || guard == null || guard.obfuscatorConfiguredManually) yield break;
 
-            var detected = AppDomain.CurrentDomain.GetAssemblies()
-                .Select(a => a.GetName().Name.ToLowerInvariant())
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name).ToList();
+            var bitMonoInstalled = assemblies.Contains("BitMono.Unity.Editor");
+            var bitMonoModuleLoaded = assemblies.Contains("GameProtection.BitMono.Editor");
+            if (bitMonoInstalled && !bitMonoModuleLoaded)
+            {
+                // Installed as a .unitypackage (no versionDefine): one click turns the integration on.
+                yield return new ValidationIssue(IssueSeverity.Warning,
+                    "BitMono is installed, but the kit's BitMono integration is off (define missing).",
+                    "Enable BitMono integration", () => BuildDefines.Add(BuildDefines.Named(EditorUserBuildSettings.activeBuildTarget), BitMonoDefine));
+                yield break;
+            }
+
+            var detected = assemblies
+                .Select(name => name.ToLowerInvariant())
                 .Any(name => !name.StartsWith("gameprotection") && ObfuscatorMarkers.Any(name.Contains));
             if (detected) yield break;
 
             yield return new ValidationIssue(IssueSeverity.Warning,
                 "No obfuscator detected. IL2CPP alone keeps class and method names readable, and public tools dump them for every " +
-                "Unity version. Use an obfuscator plus global-metadata.dat encryption (see the protection guide).",
+                "Unity version. BitMono is free and the kit integrates it: download the UPM .tgz for your Unity version, then " +
+                "Package Manager > + > Add package from tarball. Already using another obfuscator? Click \"I use one\".",
+                "Get BitMono (free)", () => Application.OpenURL(BitMonoReleasesUrl));
+
+            yield return new ValidationIssue(IssueSeverity.Info, "Using a different obfuscator? Silence the warning above.",
                 "I use one", () =>
                 {
                     guard.obfuscatorConfiguredManually = true;

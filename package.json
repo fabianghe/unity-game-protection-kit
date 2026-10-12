@@ -1,6 +1,6 @@
 {
   "name": "com.fabianghe.game-protection-kit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "Game Protection Kit",
   "description": "Protects Unity games from theft: encrypts AssetBundles/Addressables with keys kept on your own server (Steam and Play Integrity entitlement), detects re-uploaded, re-signed and rehosted copies, enforces safer builds (IL2CPP, no leaked content or symbols), embeds an ownership canary that survives asset ripping, and scans suspected clones for evidence. One-click setup. No DRM: never blocks legit players, sends no data by default.",
   "unity": "2021.3",

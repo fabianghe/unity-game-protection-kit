@@ -8,6 +8,7 @@ namespace GameProtection
     /// demo vs full, Next Fest vs a press outlet vs Discord testers, plus commit and date.
     /// </summary>
     [Serializable]
+    [System.Reflection.Obfuscation(Exclude = true, ApplyToMembers = true)]
     public sealed class BuildStamp
     {
         public const string ResourceName = "GameProtectionBuildStamp";
