@@ -170,7 +170,8 @@ namespace GameProtection.Editor.BitMono
             var metadataPlatform = target == BuildTarget.StandaloneWindows64 || target == BuildTarget.Android;
             if (il2cpp && metadataPlatform && !config.EncryptIl2CppMetadata)
                 yield return new ValidationIssue(IssueSeverity.Warning,
-                    "BitMono can encrypt global-metadata.dat on this platform so Il2CppDumper/Cpp2IL can't parse the build. It's off.",
+                    "BitMono can encrypt global-metadata.dat on this platform so static dumpers (Il2CppDumper, Cpp2IL) can't parse the files " +
+                    "on disk. A memory dump of the running game still can, so treat it as one layer. It's off.",
                     "Enable metadata encryption", () => Set(config, c => c.EncryptIl2CppMetadata = true));
 
             var folder = ConfigFolder(config);
@@ -182,12 +183,14 @@ namespace GameProtection.Editor.BitMono
                     "Animation Events and UnityEvents call methods by name; an obfuscated build silently loses them unless they're excluded.",
                     "Add Unity-safe exclusions", () => AddUnitySafeExclusions(out _));
 
+            // Assembly-CSharp only: every asmdef under Assets and every package assembly (this kit's GameProtection.Runtime
+            // included) keeps its type and method names. Runtime inspectors search by those names.
             var custom = RuntimeAssembliesUnderAssets().ToList();
-            if (custom.Count > 0)
-                yield return new ValidationIssue(IssueSeverity.Info,
-                    "BitMono's Unity integration obfuscates Assembly-CSharp only. Code in these assemblies stays readable: " +
-                    string.Join(", ", custom.Take(6)) + (custom.Count > 6 ? $" (+{custom.Count - 6} more)" : string.Empty) +
-                    ". Move sensitive gameplay code out of asmdefs, or run BitMono.CLI on them in CI.");
+            var readable = new[] { "GameProtection.Runtime (this kit: ContentKey, KeyRing, SceneMetadata...)" }.Concat(custom.Take(5)).ToList();
+            yield return new ValidationIssue(IssueSeverity.Info,
+                "BitMono's Unity integration obfuscates Assembly-CSharp only. Code in these assemblies stays readable: " +
+                string.Join(", ", readable) + (custom.Count > 5 ? $" (+{custom.Count - 5} more)" : string.Empty) +
+                ". Move sensitive gameplay code out of asmdefs, or run BitMono.CLI on these DLLs in CI.");
         }
 
         /// <summary>Names of non-editor, non-test assembly definitions under Assets (what Assembly-CSharp-only obfuscation misses).</summary>

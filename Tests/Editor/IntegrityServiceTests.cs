@@ -122,4 +122,25 @@ namespace GameProtection.Tests
             Assert.AreEqual(IntegrityStatus.Inconclusive, new AndroidInstallerCheck(new[] { "com.android.vending" }).Run().Status);
         }
     }
+
+    public sealed class EvidenceTests
+    {
+        [Test]
+        public void OwnershipToken_HasNoRecognisablePrefix()
+        {
+            var token = GameProtection.Editor.ReleaseGuardSettings.NewToken();
+            Assert.IsTrue(System.Text.RegularExpressions.Regex.IsMatch(token, "^[0-9a-f]{32}$"), token);
+            Assert.AreNotEqual(token, GameProtection.Editor.ReleaseGuardSettings.NewToken());
+        }
+
+        [Test]
+        public void CanaryObjectName_IsStablePerTokenAndNeverEmpty()
+        {
+            var name = GameProtection.Editor.ReleaseGuardSettings.CanaryObjectName("token-a");
+            Assert.AreEqual(name, GameProtection.Editor.ReleaseGuardSettings.CanaryObjectName("token-a"));
+            Assert.IsNotEmpty(name);
+            Assert.IsNotEmpty(GameProtection.Editor.ReleaseGuardSettings.CanaryObjectName(null));
+            Assert.IsFalse(name.Contains("token"));
+        }
+    }
 }

@@ -87,7 +87,7 @@ namespace GameProtection.Editor
         /// <summary>Build-only: the scene file on disk is never modified.</summary>
         static void InjectCanary(Scene scene, ReleaseGuardSettings guard)
         {
-            var canary = new GameObject("SceneSettings");
+            var canary = new GameObject(ReleaseGuardSettings.CanaryObjectName(guard.ownershipToken));
             canary.SetActive(false);
             SceneManager.MoveGameObjectToScene(canary, scene);
             canary.AddComponent<SceneMetadata>().Set($"{guard.ownershipToken}|{_buildId}|{guard.ownershipStatement}");

@@ -116,6 +116,11 @@ namespace GameProtection.Editor
             if (ContentLockKeyStore.LoadRing().Count == 0)
                 yield return new ValidationIssue(IssueSeverity.Error, "Content Lock is on but there is no content key.",
                     "Create key", () => ContentLockKeyStore.EnsureRing());
+            else if (IsTrackedByGit(ContentLockKeyStore.Find()))
+                yield return new ValidationIssue(IssueSeverity.Warning,
+                    "ContentLockKeys.asset is committed to your git repository, so anyone with repository access can decrypt every " +
+                    "bundle you ship, in both modes. Add it to .gitignore, keep an offline backup, and give CI the keys through the " +
+                    ContentLockKeyStore.EnvironmentVariable + " environment variable instead.");
 
             if (config.mode == ContentKeyMode.Remote)
             {
@@ -142,6 +147,32 @@ namespace GameProtection.Editor
             foreach (var rule in ExtraRules)
                 foreach (var issue in rule(target, isDevelopmentBuild))
                     yield return issue;
+        }
+
+        /// <summary>True when git tracks the asset. False on any failure (no git, not a repository, timeout).</summary>
+        static bool IsTrackedByGit(UnityEngine.Object asset)
+        {
+            if (asset == null) return false;
+            var assetPath = AssetDatabase.GetAssetPath(asset);
+            if (string.IsNullOrEmpty(assetPath)) return false;
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("git", "ls-files --error-unmatch -- \"" + assetPath + "\"")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                using (var process = System.Diagnostics.Process.Start(psi))
+                {
+                    if (process == null) return false;
+                    process.StandardOutput.ReadToEnd();
+                    process.StandardError.ReadToEnd();
+                    return process.WaitForExit(2000) && process.ExitCode == 0;
+                }
+            }
+            catch (Exception) { return false; }
         }
 
         static bool HasProofModuleFor(BuildTarget target)

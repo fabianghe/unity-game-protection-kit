@@ -28,7 +28,7 @@ Two modes:
 | Needs a server | No | Yes, a free Cloudflare Worker (included, ~10 minutes to deploy) |
 | Needs internet | Never | First launch only; keys are cached device-bound after that |
 
-Remote mode is the real protection. The remaining attack is to buy the game and dump decrypted assets from memory while it runs: real work with no one-click tool, which is exactly where you want the bar.
+Remote mode is the real protection against copies that never had a key: a re-upload, a demo pointed at paid content, a clone assembled from ripped files. It is not a wall against a legitimate buyer. Free runtime inspectors for Windows Unity games can read the key ring out of a running copy (one ships an MCP server, so an AI agent can do it without writing code), and a leaked key opens every bundle for every clone. What Remote mode changes is the shape of the attack: from "download and rip" to "buy, run, extract, redistribute", with the buyer's Steam ID in your server log and a key you can rotate with the next content update.
 
 Works with **Addressables** (switch groups to the *Encrypted AssetBundle Provider*, one click) and with **plain AssetBundles** (`ContentLock.LoadBundle(path, callback)` instead of `AssetBundle.LoadFromFile`).
 
@@ -89,7 +89,7 @@ Note: BitMono's Unity integration obfuscates `Assembly-CSharp` only. The validat
 
 ### Turn on Content Lock
 
-1. In **Project Settings → Game Protection → Content Lock**, tick **Enabled**. A content key is created; **back up `Assets/GameProtection/Editor/ContentLockKeys.asset`**.
+1. In **Project Settings → Game Protection → Content Lock**, tick **Enabled**. A content key is created; **back up `Assets/GameProtection/Editor/ContentLockKeys.asset`** offline and keep it out of git (the validator warns if it is tracked; CI can take the keys from the `GAMEPROTECTION_CONTENT_KEYS` environment variable).
 2. **Addressables:** Tools → Game Protection → Content Lock → **Use Encrypted Provider For All Groups** (or pick the provider per group in the group's schema). Keep *demo* groups on the stock provider. Rebuild Addressables content; the bundles are encrypted automatically after every content build.
    **Plain AssetBundles:** Tools → Game Protection → Content Lock → **Encrypt Bundles In Folder…**, and load them with `ContentLock.LoadBundle`.
 3. Start with **Local** mode and play through a build. Everything should work exactly as before.
@@ -153,9 +153,12 @@ Every optional integration is its own assembly, gated by a define, so the core n
 
 ## Honest limits
 
-- No client-side protection is unbreakable. A determined attacker with a legitimate copy can dump decrypted assets from memory and patch the checks out. The goal is to make that a reverse-engineering project instead of a download.
-- Obfuscate your code separately (the guide lists tools). Content Lock protects assets and data; your scripts still need an obfuscator and metadata encryption.
+- No client-side protection is unbreakable, and in 2026 breaking it got cheap: AI agents reconstruct native game code overnight, and free runtime inspectors for Windows Unity games read any object out of a running copy (one ships an MCP server, so an agent can drive it). The goal is a client that holds nothing worth recovering, plus evidence for when it is copied anyway.
+- Remote mode's weak point is the key, not the cipher. A legitimate buyer can read the key ring from memory, and a leaked key opens every bundle for every clone. Rotate keys with content updates and watch the server log for grants from unexpected channels; this is where a determined thief goes.
+- Obfuscate your code separately (the guide lists tools). BitMono's Unity integration renames `Assembly-CSharp` only, so your own asmdefs and this kit's runtime assembly keep their type names unless you run `BitMono.CLI` on them. Metadata encryption stops static dumpers, not memory dumps.
 - Local mode's key can be extracted by anyone who reads this repository. Use Remote mode for anything you'd mind losing.
+- Encrypted Addressables bundles served over HTTP are downloaded every session (Unity's bundle cache can't see through the container), and on Android a bundle in StreamingAssets is held in memory twice while it loads. Keep encrypted remote groups small or ship them locally.
+- Nothing here stops a clone made from your trailer. That is the most common theft of 2026 and it needs priority evidence, a store page and a trademark, not code. See Layer 0 of the guide.
 
 ## Read next
 

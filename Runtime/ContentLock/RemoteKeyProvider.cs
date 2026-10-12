@@ -75,78 +75,112 @@ namespace GameProtection.Content
         {
             string error = null;
             KeyRing fetched = null;
+            var finished = false;
 
-            if (string.IsNullOrEmpty(_serverUrl)) error = "no_server_url";
-
-            var proofProvider = error == null ? _proofProvider?.Invoke() : null;
-            if (error == null && proofProvider == null) error = "no_proof_provider";
-
-            string nonce = null;
-            if (error == null)
+            // The finally block guarantees that every waiting caller gets an answer and that _fetching is reset, even
+            // when a user-written proof provider throws. Without it one exception would wedge every later key request
+            // for the rest of the session, and encrypted content would never load.
+            try
             {
-                using (var request = UnityWebRequest.Get(_serverUrl + "/v1/nonce"))
+                if (string.IsNullOrEmpty(_serverUrl)) error = "no_server_url";
+
+                IEntitlementProofProvider proofProvider = null;
+                if (error == null)
                 {
-                    request.timeout = _timeoutSeconds;
-                    yield return request.SendWebRequest();
-                    if (request.result != UnityWebRequest.Result.Success) error = "nonce_request_failed:" + request.error;
-                    else
+                    try { proofProvider = _proofProvider?.Invoke(); }
+                    catch (Exception e)
                     {
-                        var nonceResponse = JsonUtility.FromJson<NonceResponse>(request.downloadHandler.text);
-                        nonce = nonceResponse != null ? nonceResponse.nonce : null;
-                        if (string.IsNullOrEmpty(nonce)) error = "nonce_missing";
+                        Debug.LogException(e);
+                        error = "proof_provider_exception:" + e.GetType().Name;
                     }
+                    if (error == null && proofProvider == null) error = "no_proof_provider";
                 }
-            }
 
-            ProofResult proof = default;
-            if (error == null)
-            {
-                var done = false;
-                proofProvider.GetProof(nonce, result => { proof = result; done = true; });
-                var deadline = Time.realtimeSinceStartup + _timeoutSeconds;
-                while (!done && Time.realtimeSinceStartup < deadline) yield return null;
-                if (!done) error = "proof_timeout";
-                else if (!proof.Ok) error = "proof_failed:" + proof.Error;
-            }
-
-            if (error == null)
-            {
-                var stamp = BuildStamp.Load();
-                var body = "{\"v\":1,\"nonce\":\"" + Json.Escape(nonce) + "\",\"proof\":" + proof.ProofJson +
-                           ",\"buildId\":\"" + Json.Escape(stamp.buildId) + "\",\"channel\":\"" + Json.Escape(stamp.channel) +
-                           "\",\"platform\":\"" + Application.platform + "\",\"version\":\"" + Json.Escape(Application.version) + "\"}";
-
-                using (var request = new UnityWebRequest(_serverUrl + "/v1/key", "POST"))
+                string nonce = null;
+                if (error == null)
                 {
-                    request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
-                    request.downloadHandler = new DownloadHandlerBuffer();
-                    request.SetRequestHeader("Content-Type", "application/json");
-                    request.timeout = _timeoutSeconds;
-                    yield return request.SendWebRequest();
-
-                    var text = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
-                    if (request.result != UnityWebRequest.Result.Success && request.responseCode == 0)
-                        error = "key_request_failed:" + request.error;
-                    else
+                    using (var request = UnityWebRequest.Get(_serverUrl + "/v1/nonce"))
                     {
-                        var response = SafeParse(text);
-                        if (request.responseCode != 200 || response == null || response.keys == null || response.keys.Length == 0)
-                            error = "key_denied:" + request.responseCode + ":" + (response != null && !string.IsNullOrEmpty(response.error) ? response.error : "bad_response");
+                        request.timeout = _timeoutSeconds;
+                        yield return request.SendWebRequest();
+                        if (request.result != UnityWebRequest.Result.Success) error = "nonce_request_failed:" + request.error;
                         else
                         {
-                            try
-                            {
-                                fetched = new KeyRing();
-                                foreach (var entry in response.keys) fetched.Add(ContentKey.FromBase64(entry.key));
-                                if (fetched.Count == 0) error = "no_keys_in_response";
-                            }
-                            catch (FormatException) { error = "bad_key_encoding"; }
-                            catch (ArgumentException) { error = "bad_key_length"; }
+                            // A proxy or captive portal can answer 200 with HTML; JsonUtility throws on that.
+                            var nonceResponse = SafeParse<NonceResponse>(request.downloadHandler.text);
+                            nonce = nonceResponse != null ? nonceResponse.nonce : null;
+                            if (string.IsNullOrEmpty(nonce)) error = "nonce_missing";
                         }
                     }
                 }
-            }
 
+                ProofResult proof = default;
+                if (error == null)
+                {
+                    var done = false;
+                    try { proofProvider.GetProof(nonce, result => { proof = result; done = true; }); }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                        error = "proof_exception:" + e.GetType().Name;
+                    }
+                    if (error == null)
+                    {
+                        var deadline = Time.realtimeSinceStartup + _timeoutSeconds;
+                        while (!done && Time.realtimeSinceStartup < deadline) yield return null;
+                        if (!done) error = "proof_timeout";
+                        else if (!proof.Ok) error = "proof_failed:" + proof.Error;
+                    }
+                }
+
+                if (error == null)
+                {
+                    var stamp = BuildStamp.Load();
+                    var body = "{\"v\":1,\"nonce\":\"" + Json.Escape(nonce) + "\",\"proof\":" + proof.ProofJson +
+                               ",\"buildId\":\"" + Json.Escape(stamp.buildId) + "\",\"channel\":\"" + Json.Escape(stamp.channel) +
+                               "\",\"platform\":\"" + Application.platform + "\",\"version\":\"" + Json.Escape(Application.version) + "\"}";
+
+                    using (var request = new UnityWebRequest(_serverUrl + "/v1/key", "POST"))
+                    {
+                        request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+                        request.downloadHandler = new DownloadHandlerBuffer();
+                        request.SetRequestHeader("Content-Type", "application/json");
+                        request.timeout = _timeoutSeconds;
+                        yield return request.SendWebRequest();
+
+                        var text = request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
+                        if (request.result != UnityWebRequest.Result.Success && request.responseCode == 0)
+                            error = "key_request_failed:" + request.error;
+                        else
+                        {
+                            var response = SafeParse<KeyResponse>(text);
+                            if (request.responseCode != 200 || response == null || response.keys == null || response.keys.Length == 0)
+                                error = "key_denied:" + request.responseCode + ":" + (response != null && !string.IsNullOrEmpty(response.error) ? response.error : "bad_response");
+                            else
+                            {
+                                try
+                                {
+                                    fetched = new KeyRing();
+                                    foreach (var entry in response.keys) fetched.Add(ContentKey.FromBase64(entry.key));
+                                    if (fetched.Count == 0) { fetched = null; error = "no_keys_in_response"; }
+                                }
+                                catch (FormatException) { fetched = null; error = "bad_key_encoding"; }
+                                catch (ArgumentException) { fetched = null; error = "bad_key_length"; }
+                            }
+                        }
+                    }
+                }
+
+                finished = true;
+            }
+            finally
+            {
+                Complete(fetched, finished ? error : "fetch_interrupted");
+            }
+        }
+
+        void Complete(KeyRing fetched, string error)
+        {
             KeyResult outcome;
             if (fetched != null)
             {
@@ -175,9 +209,9 @@ namespace GameProtection.Content
             }
         }
 
-        static KeyResponse SafeParse(string text)
+        static T SafeParse<T>(string text) where T : class
         {
-            try { return string.IsNullOrEmpty(text) ? null : JsonUtility.FromJson<KeyResponse>(text); }
+            try { return string.IsNullOrEmpty(text) ? null : JsonUtility.FromJson<T>(text); }
             catch (ArgumentException) { return null; }
         }
 

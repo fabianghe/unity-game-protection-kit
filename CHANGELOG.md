@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Steam module did not compile**: `SteamTicketProofProvider` used the runtime's internal coroutine host from another assembly, so any project with Steamworks.NET installed got a compile error from the kit.
+- `RemoteKeyProvider` no longer wedges for the session when a proof provider throws or the key server answers with non-JSON: every waiting caller gets a result and the next request can retry.
+
+### Changed
+- Ownership tokens are plain 32-character hex (no `GPK-` prefix) and the scene canary object name varies per project, so markers can't be found and stripped by shape. Existing tokens are unchanged.
+- Validator: warns when `ContentLockKeys.asset` is tracked by git; detects LLObf as an obfuscator; BitMono messages say that metadata encryption blocks static dumpers only and that the kit's own runtime assembly stays unobfuscated.
+- README and guide rewritten around the 2026 threat picture: AI-driven decompilation, runtime inspectors with MCP, and clones made from trailers (new Layer 0 in the guide, new section in the playbook).
+
 ## [0.3.0] - 2026-10-12
 
 ### Added

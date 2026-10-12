@@ -45,7 +45,26 @@ namespace GameProtection.Editor
         [Tooltip("Tick if you use an obfuscator the validator can't detect, to silence the warning.")]
         public bool obfuscatorConfiguredManually;
 
-        public static string NewToken() => "GPK-" + Guid.NewGuid().ToString("N");
+        /// <summary>
+        /// 32 random hex characters and nothing else. A marker with a recognisable prefix is a marker a thief can grep
+        /// for and strip; this one only matches if you already know it. Existing tokens are never replaced.
+        /// </summary>
+        public static string NewToken() => Guid.NewGuid().ToString("N");
+
+        // Plausible names for a hidden scene object. One is picked per project so there is no single name to delete.
+        static readonly string[] CanaryNames =
+        {
+            "SceneSettings", "LightingData", "RenderSettings", "SceneContext", "EnvironmentSettings",
+            "GlobalVolume", "AudioSettings", "NavigationData", "OcclusionSettings", "SceneConfig",
+        };
+
+        /// <summary>Name of the hidden canary object, derived from the token so each project uses a different boring name.</summary>
+        public static string CanaryObjectName(string token)
+        {
+            var hash = 17;
+            foreach (var c in token ?? string.Empty) hash = unchecked(hash * 31 + c);
+            return CanaryNames[(int)((uint)hash % (uint)CanaryNames.Length)];
+        }
 
         public static ReleaseGuardSettings Find()
         {

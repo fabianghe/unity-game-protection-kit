@@ -24,6 +24,16 @@ In most countries copyright applies automatically. A **trademark** on your game 
 6. **Check for siblings.** Thieves rarely steal one game. Look at the uploader's other titles and notify those developers.
 7. **Follow up.** Platforms can be slow. Reply to the same ticket rather than opening new ones.
 
+## A clone made from your trailer (no code or assets taken)
+
+Lookalikes built from a viral clip, sometimes with AI, contain none of your files, so the scanner finds nothing. The case is priority and likeness instead:
+
+1. **Collect priority evidence**: your dated Steam page, devlogs, the first public post of the clip, and the build ledger with its external timestamp if you kept one. Platforms weigh dates heavily when two games look alike.
+2. **Document the likeness** side by side: capsule, screenshots, trailer frames, UI, names and text. Copyright protects expression (art, text, music, specific layouts), not the mechanic, so lead with what was copied verbatim.
+3. **File with the store.** Steam acts on complaints, not on its own; be specific and attach the evidence. If the clone uses your name or a confusable one, a trademark registration turns this into a routine takedown.
+4. **Extortion** ("pay or I publish the clone") goes to the platform and, if the amount matters to you, to the police. Don't pay and don't negotiate; keep the messages.
+5. **Say nothing public until it's filed.** Afterwards, a calm post pointing players at the original is marketing you didn't have to pay for.
+
 ## Chinese platforms (Douyin / WeChat mini-games, TapTap, 4399 and others)
 
 Expect this to be slower and less reliable than Steam or Google Play, and plan for it:

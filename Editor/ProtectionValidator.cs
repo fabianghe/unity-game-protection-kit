@@ -57,7 +57,7 @@ namespace GameProtection.Editor
         }
 
         // Names of known obfuscation/metadata-protection tools, matched against loaded editor assemblies.
-        static readonly string[] ObfuscatorMarkers = { "obfuscat", "bitmono", "mfuscator", "beebyte" };
+        static readonly string[] ObfuscatorMarkers = { "obfuscat", "bitmono", "mfuscator", "beebyte", "llobf", "luridlane" };
 
         static IEnumerable<ValidationIssue> ObfuscationRules(ReleaseGuardSettings guard, bool isDevelopmentBuild)
         {
