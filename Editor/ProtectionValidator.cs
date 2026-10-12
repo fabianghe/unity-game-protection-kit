@@ -45,6 +45,7 @@ namespace GameProtection.Editor
                 .Concat(BackendRules(guard, target, isDevelopmentBuild))
                 .Concat(SteamworksRules(config, target))
                 .Concat(ObfuscationRules(guard, isDevelopmentBuild))
+                .Concat(ContentLockEditor.Validate(target, isDevelopmentBuild))
                 .ToList();
         }
 
@@ -85,10 +86,17 @@ namespace GameProtection.Editor
             if (!config.checksEnabled)
                 yield return new ValidationIssue(IssueSeverity.Info, "Runtime checks are disabled in IntegrityConfig.");
 
-            if (config.productName != PlayerSettings.productName || config.companyName != PlayerSettings.companyName)
+            // An empty name disables that comparison at runtime; only a wrong name would flag legit players.
+            var productMismatch = !string.IsNullOrEmpty(config.productName) && config.productName != PlayerSettings.productName;
+            var companyMismatch = !string.IsNullOrEmpty(config.companyName) && config.companyName != PlayerSettings.companyName;
+            if (productMismatch || companyMismatch)
                 yield return new ValidationIssue(IssueSeverity.Error,
                     $"Config identity (\"{config.productName}\" / \"{config.companyName}\") doesn't match Player Settings " +
                     $"(\"{PlayerSettings.productName}\" / \"{PlayerSettings.companyName}\"). Legit players would see the stolen-copy notice.",
+                    "Sync from Player Settings", () => SyncAndSave(config));
+            else if (string.IsNullOrEmpty(config.productName) && string.IsNullOrEmpty(config.companyName))
+                yield return new ValidationIssue(IssueSeverity.Info,
+                    "Product and company name checks are off (both empty in IntegrityConfig).",
                     "Sync from Player Settings", () => SyncAndSave(config));
 
             if (target == BuildTarget.Android || target == BuildTarget.iOS)
@@ -150,15 +158,17 @@ namespace GameProtection.Editor
         {
             if (!IsStandalone(target)) yield break;
 
-            var steamworks = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == SteamworksAssembly);
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var steamworks = assemblies.FirstOrDefault(a => a.GetName().Name == SteamworksAssembly);
             if (steamworks == null) yield break;
 
-            // Installed through the Package Manager: the asmdef versionDefine handles it.
-            var viaPackageManager = UnityEditor.PackageManager.PackageInfo.FindForAssembly(steamworks) != null;
-            if (!viaPackageManager && !BuildDefines.IsDefined(target, SteamworksDefine))
+            // The Steam module only compiles when GAMEPROTECTION_STEAMWORKS is defined (automatic for a Package Manager
+            // install of Steamworks.NET). If the module assembly isn't loaded, the define is missing.
+            var moduleLoaded = assemblies.Any(a => a.GetName().Name == "GameProtection.Steam");
+            if (!moduleLoaded && !BuildDefines.IsDefined(target, SteamworksDefine))
                 yield return new ValidationIssue(IssueSeverity.Warning,
-                    "Steamworks.NET found, but the Steam check is off because it wasn't installed through the Package Manager.",
-                    "Enable Steam check", () => BuildDefines.Add(BuildDefines.Named(target), SteamworksDefine));
+                    "Steamworks.NET found, but the Steam module is off (it wasn't installed through the Package Manager, so the define is missing).",
+                    "Enable Steam module", () => BuildDefines.Add(BuildDefines.Named(target), SteamworksDefine));
 
             if (config != null && (config.steamAppIds ?? new uint[0]).All(id => id == 0))
                 yield return new ValidationIssue(IssueSeverity.Warning,

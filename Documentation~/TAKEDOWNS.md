@@ -24,6 +24,15 @@ In most countries copyright applies automatically. A **trademark** on your game 
 6. **Check for siblings.** Thieves rarely steal one game. Look at the uploader's other titles and notify those developers.
 7. **Follow up.** Platforms can be slow. Reply to the same ticket rather than opening new ones.
 
+## Chinese platforms (Douyin / WeChat mini-games, TapTap, 4399 and others)
+
+Expect this to be slower and less reliable than Steam or Google Play, and plan for it:
+
+1. **Evidence first.** A CPCC copyright registration certificate (see the guide) is the document their complaint portals accept most readily. Add a Chinese translation of your ownership statement and the scanner report.
+2. **Use the platform's infringement email or form**, in Chinese if you can (machine translation is fine). Douyin commits to acting within seven business days of a valid notice. Keep the ticket number and follow up on the same thread.
+3. **Players are your allies.** The in-game notice from this kit, and a visible mechanic that marks the real game, make players report and abandon the clone.
+4. **Don't expect money.** Civil action in China against a free ad-supported clone is rarely worth it for a solo developer. Content Lock keeps the next clone from working; that is the better investment.
+
 ## Afterwards
 
 - Note which build leaked (channel and build ID) and tighten that channel.

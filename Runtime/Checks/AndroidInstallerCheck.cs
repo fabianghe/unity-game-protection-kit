@@ -24,11 +24,7 @@ namespace GameProtection.Checks
         public IntegrityResult Run()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            using var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
-            using var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
-            using var packageManager = activity.Call<AndroidJavaObject>("getPackageManager");
-            var installer = packageManager.Call<string>("getInstallerPackageName", activity.Call<string>("getPackageName"));
-
+            var installer = ReadInstaller();
             return _allowedInstallers.Contains(installer ?? string.Empty)
                 ? IntegrityResult.Pass(Id)
                 : IntegrityResult.Inconclusive(Id, "installer=" + (installer ?? "none"));
@@ -36,5 +32,25 @@ namespace GameProtection.Checks
             return IntegrityResult.Inconclusive(Id, "not_android");
 #endif
         }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        static string ReadInstaller()
+        {
+            using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (var packageManager = activity.Call<AndroidJavaObject>("getPackageManager"))
+            using (var version = new AndroidJavaClass("android.os.Build$VERSION"))
+            {
+                var packageName = activity.Call<string>("getPackageName");
+                if (version.GetStatic<int>("SDK_INT") >= 30)
+                {
+                    // getInstallerPackageName is deprecated from API 30.
+                    using (var info = packageManager.Call<AndroidJavaObject>("getInstallSourceInfo", packageName))
+                        return info.Call<string>("getInstallingPackageName");
+                }
+                return packageManager.Call<string>("getInstallerPackageName", packageName);
+            }
+        }
+#endif
     }
 }

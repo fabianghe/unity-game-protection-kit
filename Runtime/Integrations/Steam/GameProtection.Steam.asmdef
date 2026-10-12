@@ -1,0 +1,31 @@
+{
+    "name": "GameProtection.Steam",
+    "rootNamespace": "GameProtection.Steam",
+    "references": [
+        "GameProtection.Runtime",
+        "com.rlabrecque.steamworks.net"
+    ],
+    "includePlatforms": [
+        "Editor",
+        "LinuxStandalone64",
+        "macOSStandalone",
+        "WindowsStandalone32",
+        "WindowsStandalone64"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "GAMEPROTECTION_STEAMWORKS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "",
+            "define": "GAMEPROTECTION_STEAMWORKS"
+        }
+    ],
+    "noEngineReferences": false
+}

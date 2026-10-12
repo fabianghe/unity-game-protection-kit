@@ -1,0 +1,11 @@
+name = "gpk-key-server"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Non-secret settings. Secrets go in with `wrangler secret put NAME` (see README.md).
+[vars]
+STEAM_CHECK_OWNERSHIP = "true"
+STEAM_ALLOW_FAMILY_SHARING = "true"
+PLAY_REQUIRE_DEVICE_INTEGRITY = "true"
+PLAY_REQUIRE_LICENSED = "true"
+KEY_TTL_SECONDS = "2592000"

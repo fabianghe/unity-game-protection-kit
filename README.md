@@ -1,62 +1,62 @@
 # Game Protection Kit for Unity
 
-**Protect any Unity game from theft: detect stolen, re-uploaded and repackaged copies, ship builds that are harder to rip, and prove ownership when a clone appears.**
+**Protect any Unity game from theft: encrypt your content so stolen copies have no game in them, detect re-uploaded and repackaged builds, and prove ownership when a clone appears.**
 
-Indie games and demos are being decompiled, extended (increasingly with AI), and re-uploaded to Steam, mobile stores and web portals, sometimes with ads injected or malware attached. No client-side protection is unbreakable, and this kit doesn't pretend otherwise. It makes your game a worse target than the one next to it, catches the lazy majority of thieves automatically, and keeps the mistakes that make theft easy out of your builds.
+Indie games and demos get decompiled, "finished" with AI, and re-uploaded to Steam, mobile stores and Chinese mini-game platforms, sometimes with ads injected or malware attached. In many of those places takedowns are slow or impossible for a foreign solo developer. So this kit is built around a different idea: **don't rely on takedowns.** Ship content that only a genuine copy can decrypt, make rebuilt clones impossible to assemble with one-click tools, and keep the evidence ready for the cases where a takedown does work.
 
 - ✅ Drop-in: install from a git URL, click **Setup**, done. No code required.
-- ✅ Never punishes real players: no DRM, no crashes, no lockouts.
-- ✅ Private by default: sends nothing anywhere unless you plug in your own analytics.
-- ✅ Works without any third-party SDK. Steamworks.NET and Firebase are optional.
+- ✅ Never punishes real players: no DRM crashes, no lockouts, offline play after the first launch.
+- ✅ Private by default: sends nothing anywhere unless you plug in your own analytics or key server.
+- ✅ Works without any third-party SDK. Steamworks.NET, Addressables, Firebase and Play Integrity are optional and auto-detected.
 
 ---
 
 ## What it does
 
-### At runtime (detection)
+### 1. Content Lock: encrypted assets, keys off the device
+
+Your AssetBundles / Addressables bundles are encrypted at build time (AES-256-CTR) and decrypted on the fly while loading. Asset rippers (AssetRipper, AssetStudio and the like) can't open them, so a thief can't rebuild your project from a build.
+
+Two modes:
+
+| | Local mode | Remote mode |
+|---|---|---|
+| Where is the key? | Inside the build, masked | On **your** key server, never in the build |
+| Stops one-click rippers | ✅ | ✅ |
+| Stops someone who reads this repo | ❌ (they can extract the key) | ✅ (there is no key to extract) |
+| Re-uploaded copy | Still runs | **Can't fetch keys** (no valid Steam ticket / Play Integrity verdict for a copy the player doesn't own) |
+| Needs a server | No | Yes, a free Cloudflare Worker (included, ~10 minutes to deploy) |
+| Needs internet | Never | First launch only; keys are cached device-bound after that |
+
+Remote mode is the real protection. The remaining attack is to buy the game and dump decrypted assets from memory while it runs: real work with no one-click tool, which is exactly where you want the bar.
+
+Works with **Addressables** (switch groups to the *Encrypted AssetBundle Provider*, one click) and with **plain AssetBundles** (`ContentLock.LoadBundle(path, callback)` instead of `AssetBundle.LoadFromFile`).
+
+### 2. Detection: know when a copy exists
 
 | Check | Catches | Platforms |
 |---|---|---|
-| App identity | Re-uploads with a different package name, product or company name | All (identifier: Android/iOS) |
+| App identity | Re-uploads with a different package name, product or company name | All |
 | Android signature | Repackaged APKs: injected ads, "mods", store re-uploads | Android |
 | Android installer | Where copies are installed from (reported, never fails) | Android |
-| Steam App ID | Builds re-uploaded under another App ID, demos sold as full games | Windows/macOS/Linux + Steamworks.NET |
+| Steam App ID | Builds re-uploaded under another App ID, demos sold as full games | Desktop + Steamworks.NET |
 | Web host | WebGL builds rehosted on portals you didn't approve | WebGL |
 | Your own | Anything: implement `IIntegrityCheck`, one method | Any |
 
-Results go to:
-- your analytics, so you learn a clone exists, often before anyone tells you;
-- an optional in-game notice that tells players of a stolen copy where the official game lives.
+Results go to your analytics (optional), and a stolen copy can show its players where the official game lives.
 
-### At build time (prevention)
+### 3. Build guards: don't ship what shouldn't ship
 
 - **Demo leak guard.** Demo builds fail if they contain a non-demo scene, a scene that references full-game assets, or full-game content inside `Resources`. Locked content is still shipped content.
-- **IL2CPP enforcement.** Release builds fail on the Mono backend, which ships your C# in a form that decompiles back to near-original source.
-- **Build stamping.** Every build gets an ID and a channel (`full`, `demo`, `press-outlet`, `discord-testers`…). Each one is logged to `GameProtectionBuildLedger.csv`, so a leaked copy tells you exactly where it came from.
-- **Ownership canary.** A permanent, project-unique token goes into every build's data and into a hidden object in every scene. Asset rippers carry it into rebuilt clones without the thief knowing it matters.
-- **Obfuscation check.** The validator warns when release builds have no obfuscator or metadata protection.
-- **"DoNotShip" cleanup.** IL2CPP's C++/symbols backup folder and Burst debug info are moved out of the build output, so they never get uploaded to Steam. They're kept for crash symbolication.
-- **Validator.** Catches config drift, like a renamed product that would flag your own players, before it ships. Every issue comes with a one-click fix.
+- **IL2CPP enforcement.** Release builds fail on the Mono backend, which decompiles back to near-original C# in seconds.
+- **Obfuscation check.** Warns when no obfuscator is detected (IL2CPP alone leaves class and method names readable).
+- **"DoNotShip" cleanup.** IL2CPP's C++/symbols backup and Burst debug folders are moved out of the build so they never reach Steam.
 
-### For takedowns (evidence)
+### 4. Evidence: prove it's yours
 
-**Tools → Game Protection → Scan Suspicious Build…** takes a folder containing a suspected copy, ideally extracted first with AssetRipper or AssetStudio. It searches for your ownership token and every build ID in your ledger, then writes a dated report to `GameProtectionEvidence/` that you can attach to a copyright claim.
-
----
-
-## "Isn't IL2CPP enough?"
-
-No. Plenty of stolen games already used IL2CPP. There are two main ways games get taken:
-
-1. **Re-uploaded as-is.** Nothing is decompiled: the thief uploads your build under a new name. No code protection matters here, which is why the kit focuses on **detection and evidence**.
-2. **Decompiled, extended, re-released.** Public tools dump IL2CPP metadata back into readable class and method names, and asset rippers extract every scene and asset whatever the scripting backend. What raises the cost is the combination:
-   - obfuscated names,
-   - an encrypted `global-metadata.dat`, so the dumpers fail,
-   - a demo that doesn't contain the full game.
-
-   In a clone rebuilt this way your scripts get rewritten, so runtime checks are gone, but your data survives. That's what the ownership canary and the scanner are for.
-
-See the [protection guide](Documentation~/GUIDE.md) for the full picture.
+- **Build stamping.** Every build gets an ID and a channel (`full`, `demo`, `press-outlet`, `discord-testers`…), logged to `GameProtectionBuildLedger.csv`. A leaked copy tells you where it came from.
+- **Ownership canary.** A permanent, project-unique token goes into every build's data and into a hidden object in every scene. Rippers carry it into rebuilt clones without noticing.
+- **Scan Suspicious Build.** Point it at a suspected copy (extracted) and it finds your token and build IDs, then writes a dated report for your takedown or lawyer.
 
 ---
 
@@ -68,23 +68,26 @@ See the [protection guide](Documentation~/GUIDE.md) for the full picture.
 https://github.com/fabianghe/unity-game-protection-kit.git
 ```
 
-Pin a version with `#v0.1.0` at the end. Requires Unity 2021.3 or newer and is tested against Unity 6.
+Pin a version with `#v0.2.0` at the end. Requires Unity 2021.3 or newer; built against Unity 6.
 
-## Set up (2 minutes)
+## Set up (5 minutes)
 
-1. **Tools → Game Protection → Setup.** This creates both settings assets, pre-filled from Player Settings, and opens **Project Settings → Game Protection**.
+1. **Tools → Game Protection → Setup.** Creates the settings assets pre-filled from Player Settings and opens **Project Settings → Game Protection**.
 2. **Copy your ownership token** (Release guards → Ownership canary) into your evidence folder. Never change it.
-3. Fix anything the validator lists (most fixes are one click), and fill in what only you know:
-   - **Official store URL**, shown to players of stolen copies.
-   - **Android:** SHA-256 of the *App signing key* and *upload key* certificates, from Play Console → Test and release → App integrity.
-   - **Steam:** your full game, demo and playtest App IDs.
-   - **WebGL:** the hosts allowed to serve your game.
-   - **Demo:** your demo scenes and the folders that must never ship in it.
-4. For demos, add `GAME_DEMO` to your demo Build Profile's scripting defines (Unity 6), or to Player Settings.
+3. Fix anything the validator lists (most fixes are one click) and fill in what only you know: official store URL, Android cert SHA-256 (Play Console → App integrity), Steam App IDs, allowed web hosts, demo scenes and full-game-only folders.
+4. For demos, add `GAME_DEMO` to your demo Build Profile's scripting defines.
 
-That's it. Checks run automatically 20 seconds after the first scene loads, in builds only.
+That's detection and build guards. Nothing runs until Setup has been done, so installing the package in a project changes nothing by itself.
 
-> Not set up yet? The package does nothing and never touches your builds until you run Setup.
+### Turn on Content Lock
+
+1. In **Project Settings → Game Protection → Content Lock**, tick **Enabled**. A content key is created; **back up `Assets/GameProtection/Editor/ContentLockKeys.asset`**.
+2. **Addressables:** Tools → Game Protection → Content Lock → **Use Encrypted Provider For All Groups** (or pick the provider per group in the group's schema). Keep *demo* groups on the stock provider. Rebuild Addressables content; the bundles are encrypted automatically after every content build.
+   **Plain AssetBundles:** Tools → Game Protection → Content Lock → **Encrypt Bundles In Folder…**, and load them with `ContentLock.LoadBundle`.
+3. Start with **Local** mode and play through a build. Everything should work exactly as before.
+4. For **Remote** mode: deploy the key server (`Server~/cloudflare-worker/README.md`, 10 minutes), paste the URL into the config, and you're done on desktop if Steamworks.NET is installed (the Steam proof registers itself). On Android import the **Play Integrity Proof** sample.
+
+> Rule that keeps Remote mode safe: the key server allows **paid App IDs only**, demo builds never carry keys (enforced), and demo groups stay unencrypted. Otherwise a thief could point a build at your free demo and get the keys.
 
 ---
 
@@ -92,79 +95,68 @@ That's it. Checks run automatically 20 seconds after the first scene loads, in b
 
 ```csharp
 using GameProtection;
+using GameProtection.Content;
 
-// Where reports go (default: logs only). See the Firebase sample.
-GameProtectionKit.Reporter = new MyAnalyticsReporter();
-
-// What players of a stolen copy see (default: a simple dialog). See the UnityEvent sample for a no-code option.
-GameProtectionKit.NoticePresenter = new MyNoticeUi();
-
-// Add your own checks.
-GameProtectionKit.RegisterCheck(new MyCustomCheck());
-
-// React to results anywhere (Observer).
+GameProtectionKit.Reporter = new MyAnalyticsReporter();   // where integrity reports go (Firebase sample included)
+GameProtectionKit.NoticePresenter = new MyNoticeUi();      // what players of a stolen copy see
+GameProtectionKit.RegisterCheck(new MyCustomCheck());      // add your own checks
+GameProtectionKit.RunNow();                                // run checks on demand (e.g. right after Steam init)
 IntegrityEvents.ReportReady += report => Debug.Log(report);
+
+ContentLock.ProofProvider = new MyEntitlementProof();      // your own platform proof (Epic, GOG, consoles...)
+ContentLock.KeyProvider = new MyKeyProvider();             // replace the whole key strategy
+ContentLock.RefreshKeys(result => { });                    // after a purchase or key rotation
+ContentLock.LoadBundle("path-or-url", (bundle, error) => { });
 ```
 
 Set these from your own bootstrap (`Awake`, or `[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]`).
 
-**Samples** (Package Manager → Game Protection Kit → Samples):
-- **Firebase Reporter** sends integrity signals to Firebase Analytics.
-- **UnityEvent Notice** wires your own stolen-copy UI in the Inspector.
-- **Custom Check** is a template for writing your own check.
-
-### Writing a check
-
-```csharp
-public sealed class MyCheck : IIntegrityCheck
-{
-    public string Id => "my_check";
-
-    public IntegrityResult Run()
-    {
-        // Fail ONLY on evidence a legit player can never produce. When in doubt, Inconclusive.
-        return IntegrityResult.Pass(Id);
-    }
-}
-```
+**Samples** (Package Manager → Game Protection Kit → Samples): Firebase Reporter, UnityEvent Notice (no-code UI), Custom Check template, Play Integrity Proof (Android, Remote mode).
 
 ### Per-recipient builds
 
 Set `BUILD_CHANNEL` before building (CLI or CI), for example `BUILD_CHANNEL=press-ign`. If that build leaks, its reports carry the channel and build ID; match them against `GameProtectionBuildLedger.csv`.
 
-### Steamworks.NET
+### Optional dependencies
 
-If you installed it through the Package Manager, the Steam check is enabled automatically. If you installed it as a `.unitypackage`, the validator offers a one-click fix that adds the `GAMEPROTECTION_STEAMWORKS` define.
+| Package | What turns on | How |
+|---|---|---|
+| Steamworks.NET (`com.rlabrecque.steamworks.net`) | Steam App ID check, Steam ticket proof for Content Lock | Automatic for a Package Manager install; otherwise the validator offers a one-click define |
+| Addressables (`com.unity.addressables` 1.19+) | Encrypted AssetBundle Provider, automatic bundle encryption after content builds | Automatic |
+| Google Play Integrity plugin | Android proof for Content Lock Remote mode | Import the sample |
+| Firebase Analytics | Integrity telemetry | Import the sample |
 
 ---
 
 ## Architecture
 
 ```
-IIntegrityCheck (Strategy) ──▶ IntegrityService (pure C#) ──▶ IntegrityReport
-                                                               │
-GameProtectionKit (composition root) ── publishes ─────────────┤
-                                                               ├─▶ IntegrityEvents.ReportReady (Observer)
-                                                               ├─▶ IIntegrityReporter       (your analytics)
-                                                               └─▶ ITamperNoticePresenter   (your UI)
+Detection                                   Content Lock
+IIntegrityCheck (Strategy)                  ContentEncryptor / DecryptingStream (AES-256-CTR, seekable)
+   └─▶ IntegrityService (pure C#)              └─▶ EncryptedAssetBundleProvider (Addressables) / ContentLock.LoadBundle
+         └─▶ IntegrityReport                 IContentKeyProvider (Strategy): LocalKeyProvider | RemoteKeyProvider
+               ├─▶ IntegrityEvents (Observer)       └─▶ IEntitlementProofProvider: Steam ticket | Play Integrity | dev
+               ├─▶ IIntegrityReporter                     └─▶ DeviceBoundKeyCache (offline after first launch)
+               └─▶ ITamperNoticePresenter          Server~/cloudflare-worker (verifies proofs, hands out keys)
 ```
 
-Checks don't know about Unity lifecycle, reporting or UI. Adding a check, a reporter or a notice never requires changing existing code.
+Every optional integration is its own assembly, gated by a define, so the core never depends on anything. Adding a check, a reporter, a proof provider or a notice never changes existing code.
 
----
+## Honest limits
 
-## Why open source, if thieves can read it?
-
-The people re-uploading stolen demos don't audit packages on GitHub; they ship what they grabbed. Anyone determined enough to strip the checks could have stripped closed-source ones too. Open source lets every indie dev use this for free, review it, and make it better. Pair it with an obfuscator (see the guide) to raise the cost further.
+- No client-side protection is unbreakable. A determined attacker with a legitimate copy can dump decrypted assets from memory and patch the checks out. The goal is to make that a reverse-engineering project instead of a download.
+- Obfuscate your code separately (the guide lists tools). Content Lock protects assets and data; your scripts still need an obfuscator and metadata encryption.
+- Local mode's key can be extracted by anyone who reads this repository. Use Remote mode for anything you'd mind losing.
 
 ## Read next
 
-- [Protection guide](Documentation~/GUIDE.md): the full layered strategy (IL2CPP, obfuscators, demos, assets, accounts) and which tools to use.
-- [Takedown playbook](Documentation~/TAKEDOWNS.md): what to do when you find a copy.
+- [Protection guide](Documentation~/GUIDE.md): the full strategy, which obfuscator to use, demos, China, accounts.
+- [Takedown playbook](Documentation~/TAKEDOWNS.md): what to do when you find a copy, including Chinese platforms.
+- [Key server](Server~/cloudflare-worker/README.md): deploy and configure Remote mode.
 
 ## Contributing
 
-New checks, platforms (iOS hardening, consoles, Facepunch.Steamworks, Epic), better notices, translations, and real takedown stories are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+New checks, proof providers (Epic, GOG, consoles), asset watermarking, notice UIs, translations and real takedown stories are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

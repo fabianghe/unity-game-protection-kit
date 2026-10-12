@@ -44,7 +44,8 @@ namespace GameProtection.Editor
             var guard = ReleaseGuardSettings.Find();
 
             _buildId = null;
-            _isDemoBuild = false;
+            _isDemoBuild = guard != null && BuildDefines.IsDefined(summary.platform, guard.demoDefine);
+            ContentLockEditor.OnPreprocessBuild(_isDemoBuild); // independent of the guards: embeds keys only when Content Lock is on
             if (guard == null)
             {
                 // Installed but not set up yet: never break or touch someone's build.
@@ -52,7 +53,6 @@ namespace GameProtection.Editor
                 return;
             }
 
-            _isDemoBuild = BuildDefines.IsDefined(summary.platform, guard.demoDefine);
             ProtectionSetup.EnsureOwnership(guard);
 
             var issues = ProtectionValidator.Validate(summary.platform, isDevelopment);
@@ -112,13 +112,19 @@ namespace GameProtection.Editor
 
         public void OnPostprocessBuild(BuildReport report)
         {
+            ContentLockEditor.OnPostprocessBuild();
             var guard = ReleaseGuardSettings.Find();
             if (guard == null) return;
 
             if (guard.moveDoNotShipFolders)
                 MoveDoNotShipFolders(report.summary.outputPath, _buildId);
 
-            if (File.Exists(StampAssetPath)) AssetDatabase.DeleteAsset(StampAssetPath); // editor stays on the "editor" stamp
+            RemoveStamp(); // editor stays on the "editor" stamp
+        }
+
+        internal static void RemoveStamp()
+        {
+            if (File.Exists(StampAssetPath)) AssetDatabase.DeleteAsset(StampAssetPath);
         }
 
         // ---------- helpers ----------
@@ -154,10 +160,7 @@ namespace GameProtection.Editor
             };
             _buildId = stamp.buildId;
 
-            ProtectionSetup.EnsureFolder(ProtectionSetup.GeneratedResourcesFolder);
-            var gitignore = Path.Combine(Path.GetDirectoryName(ProtectionSetup.GeneratedResourcesFolder) ?? ".", ".gitignore");
-            if (!File.Exists(gitignore)) File.WriteAllText(gitignore, "*\n!.gitignore\n");
-
+            ProtectionSetup.EnsureGeneratedFolder();
             File.WriteAllText(StampAssetPath, JsonUtility.ToJson(stamp));
             AssetDatabase.ImportAsset(StampAssetPath, ImportAssetOptions.ForceSynchronousImport);
 

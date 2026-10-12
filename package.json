@@ -1,13 +1,13 @@
 {
   "name": "com.fabianghe.game-protection-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Game Protection Kit",
-  "description": "Protects Unity games from theft: detects re-uploaded, re-signed and rehosted copies, enforces safer builds (IL2CPP, no leaked content or symbols), embeds an ownership canary that survives asset ripping, and scans suspected clones for evidence. One-click setup. No DRM: never blocks legit players, sends no data by default.",
+  "description": "Protects Unity games from theft: encrypts AssetBundles/Addressables with keys kept on your own server (Steam and Play Integrity entitlement), detects re-uploaded, re-signed and rehosted copies, enforces safer builds (IL2CPP, no leaked content or symbols), embeds an ownership canary that survives asset ripping, and scans suspected clones for evidence. One-click setup. No DRM: never blocks legit players, sends no data by default.",
   "unity": "2021.3",
   "documentationUrl": "https://github.com/fabianghe/unity-game-protection-kit#readme",
   "changelogUrl": "https://github.com/fabianghe/unity-game-protection-kit/blob/main/CHANGELOG.md",
   "licensesUrl": "https://github.com/fabianghe/unity-game-protection-kit/blob/main/LICENSE.md",
-  "keywords": ["security", "anti-piracy", "anti-tamper", "integrity", "demo", "il2cpp", "steam", "android", "webgl"],
+  "keywords": ["security", "anti-piracy", "anti-tamper", "encryption", "assetbundle", "addressables", "integrity", "demo", "il2cpp", "steam", "android", "webgl"],
   "author": {
     "name": "Fabian",
     "url": "https://github.com/fabianghe"
@@ -27,6 +27,11 @@
       "displayName": "Custom Check",
       "description": "Template for writing and registering your own integrity check.",
       "path": "Samples~/CustomCheck"
+    },
+    {
+      "displayName": "Play Integrity Proof",
+      "description": "Android entitlement proof for Content Lock Remote mode. Requires the Google Play Integrity plugin.",
+      "path": "Samples~/PlayIntegrityProof"
     }
   ]
 }

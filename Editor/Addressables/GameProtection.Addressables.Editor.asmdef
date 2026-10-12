@@ -1,0 +1,31 @@
+{
+    "name": "GameProtection.Addressables.Editor",
+    "rootNamespace": "GameProtection.Addressables.Editor",
+    "references": [
+        "GameProtection.Runtime",
+        "GameProtection.Editor",
+        "GameProtection.Addressables",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "GAMEPROTECTION_ADDRESSABLES"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.addressables",
+            "expression": "1.19.0",
+            "define": "GAMEPROTECTION_ADDRESSABLES"
+        }
+    ],
+    "noEngineReferences": false
+}

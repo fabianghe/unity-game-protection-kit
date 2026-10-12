@@ -33,6 +33,7 @@ namespace GameProtection.Editor
         {
             EnsureConfig();
             EnsureGuardSettings();
+            ContentLockEditor.EnsureConfig();
             AssetDatabase.SaveAssets();
         }
 
@@ -115,6 +116,23 @@ namespace GameProtection.Editor
             }
 
             if (changed) EditorUtility.SetDirty(settings);
+        }
+
+        /// <summary>A failed build never reaches the post-build cleanup; remove leftover build-only files on the next editor load.</summary>
+        [InitializeOnLoadMethod]
+        static void CleanupGeneratedOnLoad()
+        {
+            if (BuildPipeline.isBuildingPlayer) return;
+            ReleaseBuildGuards.RemoveStamp();
+            ContentLockEditor.RemoveEmbeddedKeys();
+        }
+
+        /// <summary>Generated/Resources holds build-only files (stamp, embedded keys). Git-ignored so nothing generated is committed.</summary>
+        public static void EnsureGeneratedFolder()
+        {
+            EnsureFolder(GeneratedResourcesFolder);
+            var gitignore = Path.Combine(Path.GetDirectoryName(GeneratedResourcesFolder) ?? ".", ".gitignore");
+            if (!File.Exists(gitignore)) File.WriteAllText(gitignore, "*\n!.gitignore\n");
         }
 
         public static void EnsureFolder(string assetPath)

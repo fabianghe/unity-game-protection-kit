@@ -28,6 +28,12 @@ Thanks for helping indie devs protect their work.
    ```
    then open **Window → General → Test Runner → EditMode**.
 
+## Optional integrations
+
+Anything that depends on a third-party package lives in its own assembly under `Runtime/Integrations/<Name>/` (and `Editor/<Name>/` for editor code), gated with `defineConstraints` and a `versionDefines` entry for the package. The core assemblies never reference it. The module registers itself with `[RuntimeInitializeOnLoadMethod]` (`GameProtectionKit.RegisterCheckFactory`, `ContentLock.ProofProvider`) or `[InitializeOnLoad]` (`ContentLockEditor.ExtraRules`). See `Runtime/Integrations/Steam` for the pattern.
+
+Proof providers for other stores are the most wanted contribution: Epic Online Services, GOG Galaxy, Xbox/PlayStation/Switch. Each needs a client `IEntitlementProofProvider` and a verifier in `Server~/cloudflare-worker/worker.js`.
+
 ## Adding a check
 
 1. Add a class in `Runtime/Checks/` implementing `IIntegrityCheck`, with a `public const string CheckId`.

@@ -53,9 +53,20 @@ Demos are the most common starting point for theft: free, widely downloaded, and
 
 ---
 
-## Layer 3: assets
+## Layer 3: assets (Content Lock)
 
-Be realistic: anything rendered on screen can be captured. Encrypting AssetBundles or Addressables stops one-click extraction, not a determined ripper, and it costs load time. Use it for genuinely premium content (licensed music, high-value art packs), not for everything.
+Most cloners never reverse your code. They rip your assets, watch the gameplay, and have an AI re-implement the mechanics. So the assets are what to lock.
+
+The kit's **Content Lock** encrypts your bundles at build time and decrypts them while loading:
+
+- **Local mode** keeps a masked key in the build. One-click rippers get nothing usable, and a repackaged copy that changes your product or company name gets an unusable key. Anyone who reads this repository can still extract it.
+- **Remote mode** keeps the key on your own server. A copy gets the key only after proving entitlement with a Steam auth ticket or a Play Integrity verdict, so a re-uploaded build can't fetch it. Keys are cached device-bound, so the game works offline after the first launch, and a failed refresh never locks a paying player out.
+
+What it costs: a few percent of CPU during bundle loading (AES on the fly), a small server (free tier) for Remote mode, and the discipline to keep demo content on the stock provider.
+
+What it doesn't do: stop screen capture, or stop someone who buys the game and dumps decrypted assets from memory. Both are real work, which is the point.
+
+Encrypt everything that isn't needed before the first scene, and keep your scripts obfuscated separately: Content Lock protects data, not code.
 
 ---
 
@@ -68,7 +79,18 @@ That's this kit: runtime checks catch as-is re-uploads, and the ownership canary
 
 ---
 
-## Layer 5: your accounts and your machine
+## Layer 5: China and other places where takedowns don't work
+
+The fastest-growing theft channel is mini-games inside Douyin (China's TikTok) and WeChat: no download, no store review, free and ad-supported, with a built-in audience of hundreds of millions. Clones of Western Steam games have reached 600,000+ players there. Enforcement is weak for foreigners: full developer accounts need a Chinese national ID, complaints go through email with a one-week response window, and litigation means local counsel and notarized evidence.
+
+The lesson is that in these markets **prevention beats enforcement**:
+
+- **Content Lock in Remote mode.** A clone built from your ripped assets needs those assets decrypted. If they never leave your server unencrypted except to genuine copies, the clone pipeline has nothing to work with.
+- **Design-level identity.** A mechanic or character that players recognise as yours makes copies visibly fake. One developer's "pirate customer" character did exactly that; the cloners didn't notice until players complained.
+- **Register your copyright in China** with the CPCC through an agent (a few hundred RMB per work, one to two months; foreign companies can register in their own name). Certificates are what Chinese platforms' complaint portals accept on the first pass.
+- **File your title as a trademark in China, including a Chinese-character version.** Copyright doesn't protect names, and squatters know it.
+
+## Layer 6: your accounts and your machine
 
 The newer threats target developers rather than builds:
 - **Account takeover.** Use hardware-key or app-based 2FA and a dedicated email for Steamworks, Play Console, App Store Connect and Unity. A hijacked publisher account can push a malicious update to your real players.
