@@ -1,0 +1,32 @@
+{
+  "name": "com.OWNER.game-protection-kit",
+  "version": "0.1.0",
+  "displayName": "Game Protection Kit",
+  "description": "Detects re-uploaded, re-signed and rehosted copies of your Unity game, and stops demo builds from leaking full-game content. Build stamping for leak tracing, IL2CPP enforcement, one-click setup. No DRM: never blocks legit players, sends no data by default.",
+  "unity": "2021.3",
+  "documentationUrl": "https://github.com/OWNER/unity-game-protection-kit#readme",
+  "changelogUrl": "https://github.com/OWNER/unity-game-protection-kit/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/OWNER/unity-game-protection-kit/blob/main/LICENSE.md",
+  "keywords": ["security", "anti-piracy", "anti-tamper", "integrity", "demo", "il2cpp", "steam", "android", "webgl"],
+  "author": {
+    "name": "Fabian",
+    "url": "https://github.com/OWNER"
+  },
+  "samples": [
+    {
+      "displayName": "Firebase Reporter",
+      "description": "Sends integrity signals to Firebase Analytics. Requires the Firebase Analytics SDK.",
+      "path": "Samples~/FirebaseReporter"
+    },
+    {
+      "displayName": "UnityEvent Notice",
+      "description": "Replace the default stolen-copy notice with your own UI, wired in the Inspector.",
+      "path": "Samples~/UnityEventNotice"
+    },
+    {
+      "displayName": "Custom Check",
+      "description": "Template for writing and registering your own integrity check.",
+      "path": "Samples~/CustomCheck"
+    }
+  ]
+}

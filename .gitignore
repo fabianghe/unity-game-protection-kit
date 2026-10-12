@@ -1,0 +1,13 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+.vscode/
+*.swp
+
+# If you develop this package inside a host Unity project, keep that project out of the repo
+/Library/
+/Temp/
+/Logs/
+/UserSettings/

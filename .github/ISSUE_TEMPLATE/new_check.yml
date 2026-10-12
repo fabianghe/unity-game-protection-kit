@@ -1,0 +1,27 @@
+name: New check or platform
+description: Propose a new detection, validator rule or platform
+labels: [enhancement]
+body:
+  - type: textarea
+    id: threat
+    attributes:
+      label: What theft or abuse does it catch?
+    validations:
+      required: true
+  - type: textarea
+    id: signal
+    attributes:
+      label: What's the signal, and can a legit player ever trigger it?
+      description: Checks may only Fail on evidence a real player can never produce.
+    validations:
+      required: true
+  - type: input
+    id: platforms
+    attributes:
+      label: Platforms
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd like to implement this myself

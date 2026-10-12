@@ -1,0 +1,22 @@
+{
+    "name": "GameProtection.Runtime",
+    "rootNamespace": "GameProtection",
+    "references": [
+        "com.rlabrecque.steamworks.net"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.rlabrecque.steamworks.net",
+            "expression": "",
+            "define": "GAMEPROTECTION_STEAMWORKS"
+        }
+    ],
+    "noEngineReferences": false
+}

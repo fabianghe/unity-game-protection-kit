@@ -1,0 +1,36 @@
+name: Bug report
+description: Something doesn't work, or a legit player got flagged
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the report line from the log (`[GameProtection] build=... | ...`) if you have it.
+    validations:
+      required: true
+  - type: input
+    id: unity
+    attributes:
+      label: Unity version
+      placeholder: 6000.0.x
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and backend
+      placeholder: Android IL2CPP, Windows IL2CPP + Steam, WebGL...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.1.0
+  - type: checkboxes
+    id: false_positive
+    attributes:
+      label: Is this a false positive?
+      options:
+        - label: A legit, unmodified build reported Fail
