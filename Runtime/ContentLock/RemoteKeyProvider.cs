@@ -14,6 +14,7 @@ namespace GameProtection.Content
     ///        { "v":1, "nonce":"...", "proof": {...}, "buildId":"...", "channel":"...", "platform":"..." }
     /// Keys are cached device-bound so the game works offline afterwards. A failed refresh never discards a cache
     /// when allowStaleCache is on: paying players are never locked out by a server hiccup.
+    /// The cache is refreshed after cacheDays or the server's ttlSeconds, whichever is shorter.
     /// </summary>
     public sealed class RemoteKeyProvider : IContentKeyProvider
     {
@@ -24,9 +25,16 @@ namespace GameProtection.Content
         readonly bool _allowStale;
         readonly int _timeoutSeconds;
 
+        // After a rotation, every bundle encrypted with the new key asks for a refresh. One answer from the server
+        // covers them all, so further requests inside this window reuse it instead of calling again.
+        const float MissingKeyRetrySeconds = 60f;
+
         KeyRing _ring;
         DateTime _fetchedAtUtc;
+        TimeSpan _serverTtl;
         bool _fetching;
+        float _lastAttemptAt = float.NegativeInfinity;
+        string _lastError;
         readonly List<Action<KeyResult>> _waiting = new List<Action<KeyResult>>();
 
         public RemoteKeyProvider(ContentLockConfig config, Func<IEntitlementProofProvider> proofProvider, DeviceBoundKeyCache cache = null)
@@ -41,10 +49,11 @@ namespace GameProtection.Content
 
         public bool TryGetKeysNow(out KeyRing keys)
         {
-            if (_ring == null && _cache.TryLoad(out var cached, out var at))
+            if (_ring == null && _cache.TryLoad(out var cached, out var at, out var ttl))
             {
                 _ring = cached;
                 _fetchedAtUtc = at;
+                _serverTtl = ttl;
             }
             keys = _ring;
             return keys != null && keys.Count > 0;
@@ -55,10 +64,32 @@ namespace GameProtection.Content
         /// <summary>Ignores the cache TTL and asks the server again (e.g. after a purchase or key rotation).</summary>
         public void Refresh(Action<KeyResult> onComplete) => Request(onComplete, true);
 
+        /// <summary>
+        /// For content whose key isn't in the ring: the build is newer than the cached keys (a key rotation shipped).
+        /// Asks the server again even though the cache is still fresh, at most once a minute.
+        /// </summary>
+        public void RefreshForMissingKey(Action<KeyResult> onComplete)
+        {
+            if (!_fetching && Time.realtimeSinceStartup - _lastAttemptAt < MissingKeyRetrySeconds)
+            {
+                onComplete?.Invoke(TryGetKeysNow(out var ring) ? KeyResult.Success(ring) : KeyResult.Failure(_lastError));
+                return;
+            }
+            Request(onComplete, true);
+        }
+
+        bool IsFresh()
+        {
+            var ttl = _serverTtl > TimeSpan.Zero && _serverTtl < _cacheTtl ? _serverTtl : _cacheTtl;
+            var age = DateTime.UtcNow - _fetchedAtUtc;
+            // A fetch time in the future means the clock was changed; that must not keep a cache "fresh" forever.
+            return age < ttl && age > TimeSpan.FromDays(-1);
+        }
+
         void Request(Action<KeyResult> onComplete, bool force)
         {
             var haveCache = TryGetKeysNow(out _);
-            var fresh = haveCache && DateTime.UtcNow - _fetchedAtUtc < _cacheTtl;
+            var fresh = haveCache && IsFresh();
             if (fresh && !force)
             {
                 onComplete?.Invoke(KeyResult.Success(_ring));
@@ -75,6 +106,7 @@ namespace GameProtection.Content
         {
             string error = null;
             KeyRing fetched = null;
+            long ttlSeconds = 0;
             var finished = false;
 
             // The finally block guarantees that every waiting caller gets an answer and that _fetching is reset, even
@@ -163,6 +195,7 @@ namespace GameProtection.Content
                                     fetched = new KeyRing();
                                     foreach (var entry in response.keys) fetched.Add(ContentKey.FromBase64(entry.key));
                                     if (fetched.Count == 0) { fetched = null; error = "no_keys_in_response"; }
+                                    else ttlSeconds = response.ttlSeconds;
                                 }
                                 catch (FormatException) { fetched = null; error = "bad_key_encoding"; }
                                 catch (ArgumentException) { fetched = null; error = "bad_key_length"; }
@@ -175,18 +208,22 @@ namespace GameProtection.Content
             }
             finally
             {
-                Complete(fetched, finished ? error : "fetch_interrupted");
+                Complete(fetched, finished ? error : "fetch_interrupted", ttlSeconds);
             }
         }
 
-        void Complete(KeyRing fetched, string error)
+        void Complete(KeyRing fetched, string error, long ttlSeconds)
         {
+            _lastAttemptAt = Time.realtimeSinceStartup;
+            _lastError = error;
+
             KeyResult outcome;
             if (fetched != null)
             {
                 _ring = fetched;
                 _fetchedAtUtc = DateTime.UtcNow;
-                _cache.Save(_ring, _fetchedAtUtc);
+                _serverTtl = ttlSeconds > 0 ? TimeSpan.FromSeconds(Math.Min(ttlSeconds, 3650L * 24 * 3600)) : TimeSpan.Zero;
+                _cache.Save(_ring, _fetchedAtUtc, _serverTtl);
                 outcome = KeyResult.Success(_ring);
             }
             else if (_allowStale && _ring != null && _ring.Count > 0)

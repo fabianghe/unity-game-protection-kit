@@ -35,19 +35,48 @@ namespace GameProtection.Editor.Addressables
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null) return;
 
-            var folders = EncryptedGroups(settings)
-                .Select(g => g.GetSchema<BundledAssetGroupSchema>().BuildPath.GetValue(settings))
-                .Where(p => !string.IsNullOrEmpty(p) && Directory.Exists(p))
-                .Distinct()
-                .ToList();
-            if (folders.Count == 0) return;
+            var files = BundlesToEncrypt(result, settings).Distinct().Where(File.Exists).ToList();
+            if (files.Count == 0) return;
 
             var key = ContentLockKeyStore.EnsureRing().Current;
-            var total = 0;
-            foreach (var folder in folders)
-                total += Directory.GetFiles(folder, "*.bundle", SearchOption.AllDirectories).Count(file => ContentEncryptor.EncryptFile(file, key));
-
+            var total = files.Count(file => ContentEncryptor.EncryptFile(file, key));
             Debug.Log($"[GameProtection] Content Lock: encrypted {total} Addressables bundle(s) with key {ContentKey.FormatId(key.Id)}.");
+        }
+
+        /// <summary>
+        /// The bundle files that belong to groups on the encrypted provider, and only those. Groups normally share one
+        /// build folder, so encrypting "every bundle in the folder" would also lock the bundles of groups that load
+        /// through the stock provider (demo groups, and the shared shader bundle of the default group), and the stock
+        /// provider can't open them.
+        /// </summary>
+        static IEnumerable<string> BundlesToEncrypt(AddressableAssetBuildResult result, AddressableAssetSettings settings)
+        {
+            // Entering Play Mode also raises buildCompleted; it builds no bundles.
+            if (result is AddressablesPlayModeBuildResult) return Enumerable.Empty<string>();
+
+            if (result is AddressablesPlayerBuildResult player && player.AssetBundleBuildResults != null && player.AssetBundleBuildResults.Count > 0)
+                return player.AssetBundleBuildResults
+                    .Where(b => b != null && b.SourceAssetGroup != null && !string.IsNullOrEmpty(b.FilePath) && UsesEncryptedProvider(b.SourceAssetGroup))
+                    .Select(b => b.FilePath);
+
+            // A build script that doesn't report its bundles: fall back to whole folders, but only folders that hold
+            // nothing except encrypted groups.
+            string BuildFolder(AddressableAssetGroup group) => group.GetSchema<BundledAssetGroupSchema>().BuildPath.GetValue(settings);
+
+            var plainFolders = new HashSet<string>(settings.groups
+                .Where(g => g != null && g.GetSchema<BundledAssetGroupSchema>() != null && !UsesEncryptedProvider(g))
+                .Select(BuildFolder));
+            var files = new List<string>();
+            foreach (var folder in EncryptedGroups(settings).Select(BuildFolder).Distinct().Where(p => !string.IsNullOrEmpty(p) && Directory.Exists(p)))
+            {
+                if (plainFolders.Contains(folder))
+                    Debug.LogWarning($"[GameProtection] Content Lock: {folder} is shared by encrypted and unencrypted Addressables groups and this " +
+                                     "build script doesn't report which bundle belongs to which group, so nothing in it was encrypted. " +
+                                     "Give encrypted groups their own Build Path.");
+                else
+                    files.AddRange(Directory.GetFiles(folder, "*.bundle", SearchOption.AllDirectories));
+            }
+            return files;
         }
 
         public static IEnumerable<AddressableAssetGroup> EncryptedGroups(AddressableAssetSettings settings) =>

@@ -30,6 +30,8 @@ Two modes:
 
 Remote mode is the real protection against copies that never had a key: a re-upload, a demo pointed at paid content, a clone assembled from ripped files. It is not a wall against a legitimate buyer. Free runtime inspectors for Windows Unity games can read the key ring out of a running copy (one ships an MCP server, so an AI agent can do it without writing code), and a leaked key opens every bundle for every clone. What Remote mode changes is the shape of the attack: from "download and rip" to "buy, run, extract, redistribute", with the buyer's Steam ID in your server log and a key you can rotate with the next content update.
 
+Patches stay small: a bundle that didn't change between two builds encrypts to exactly the same bytes, so Steam and CDNs only ship what you actually changed. After a key rotation, games fetch the new key by themselves the first time they meet content that needs it.
+
 Works with **Addressables** (switch groups to the *Encrypted AssetBundle Provider*, one click) and with **plain AssetBundles** (`ContentLock.LoadBundle(path, callback)` instead of `AssetBundle.LoadFromFile`).
 
 ### 2. Detection: know when a copy exists
@@ -115,6 +117,7 @@ ContentLock.ProofProvider = new MyEntitlementProof();      // your own platform 
 ContentLock.KeyProvider = new MyKeyProvider();             // replace the whole key strategy
 ContentLock.RefreshKeys(result => { });                    // after a purchase or key rotation
 ContentLock.LoadBundle("path-or-url", (bundle, error) => { });
+ContentLock.UnloadBundle(bundle, true);                    // unload and close the encrypted file behind it
 ```
 
 Set these from your own bootstrap (`Awake`, or `[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]`).

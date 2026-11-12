@@ -23,6 +23,7 @@ namespace GameProtection
     {
         static readonly List<IIntegrityCheck> ExtraChecks = new List<IIntegrityCheck>();
         static readonly List<Func<IntegrityConfig, IIntegrityCheck>> CheckFactories = new List<Func<IntegrityConfig, IIntegrityCheck>>();
+        static bool _noticeShown;
 
         public static IIntegrityReporter Reporter { get; set; } = new DebugLogIntegrityReporter();
         public static ITamperNoticePresenter NoticePresenter { get; set; } = new DefaultTamperNoticePresenter();
@@ -90,6 +91,7 @@ namespace GameProtection
             NoticePresenter = new DefaultTamperNoticePresenter();
             Config = null;
             IsRunning = false;
+            _noticeShown = false;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -111,7 +113,9 @@ namespace GameProtection
             try { Reporter?.Report(report); }
             catch (Exception e) { Debug.LogException(e); }
 
-            if (!report.IsTampered || !config.showNoticeOnTamper) return;
+            // Once per session: RunNow can be called many times, and each call would stack another notice.
+            if (!report.IsTampered || !config.showNoticeOnTamper || _noticeShown) return;
+            _noticeShown = true;
             try { NoticePresenter?.Show(report, config.officialStoreUrl); }
             catch (Exception e) { Debug.LogException(e); }
         }

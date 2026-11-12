@@ -7,7 +7,7 @@
  *   - dev (testing): a shared secret, only when DEV_SHARED_SECRET is configured
  *
  * Endpoints
- *   GET  /v1/nonce  -> { "nonce": "<base64url>" }               (10 minute validity, HMAC-signed, stateless)
+ *   GET  /v1/nonce  -> { "nonce": "<base64url, 56 chars>" }     (10 minute validity, HMAC-signed, stateless)
  *   POST /v1/key    -> { "keys": [{ "id", "key" }], "ttlSeconds }  or  4xx { "error": "..." }
  *        body: { v:1, nonce, proof:{ type:"steam", appId, ticket } | { type:"play", packageName, token } | { type:"dev", secret },
  *                buildId, channel, platform, version }
@@ -30,12 +30,21 @@
 
 const NONCE_MAX_AGE_MS = 10 * 60 * 1000;
 const PLAY_TOKEN_MAX_AGE_MS = 10 * 60 * 1000;
+const MAX_BODY_CHARS = 64 * 1024; // a Steam ticket or Play token is a few KB at most
+
+// Nonce = 8 bytes timestamp + 16 bytes random + 18 bytes MAC = 42 bytes. A multiple of 3 on purpose: it encodes to
+// base64url with no padding, so the string the client hands to Play Integrity comes back character for character.
+const NONCE_PAYLOAD_BYTES = 8 + 16;
+const NONCE_MAC_BYTES = 18;
 
 export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
-      if (request.method === 'GET' && url.pathname === '/v1/nonce') return json(200, { nonce: await makeNonce(env) });
+      if (request.method === 'GET' && url.pathname === '/v1/nonce') {
+        if (!env.NONCE_SECRET) return json(500, { error: 'server_not_configured', message: 'NONCE_SECRET missing' });
+        return json(200, { nonce: await makeNonce(env) });
+      }
       if (request.method === 'POST' && url.pathname === '/v1/key') return await handleKey(request, env);
       if (request.method === 'GET' && url.pathname === '/') return json(200, { ok: true, service: 'gpk-key-server' });
       return json(404, { error: 'not_found' });
@@ -48,9 +57,14 @@ export default {
 
 async function handleKey(request, env) {
   if (!env.CONTENT_KEYS) return json(500, { error: 'server_not_configured', message: 'CONTENT_KEYS missing' });
+  if (!env.NONCE_SECRET) return json(500, { error: 'server_not_configured', message: 'NONCE_SECRET missing' });
+
+  if (Number(request.headers.get('content-length') || 0) > MAX_BODY_CHARS) return json(413, { error: 'too_large' });
+  const text = await request.text();
+  if (text.length > MAX_BODY_CHARS) return json(413, { error: 'too_large' });
 
   let body;
-  try { body = await request.json(); } catch { return json(400, { error: 'bad_json' }); }
+  try { body = JSON.parse(text); } catch { return json(400, { error: 'bad_json' }); }
   if (!body || body.v !== 1 || !body.proof || typeof body.proof.type !== 'string') return json(400, { error: 'bad_request' });
 
   const nonceCheck = await verifyNonce(env, body.nonce);
@@ -78,17 +92,18 @@ async function handleKey(request, env) {
   }
 
   console.log(JSON.stringify({ granted: body.proof.type, subject: verdict.subject, build: body.buildId, channel: body.channel, platform: body.platform }));
-  return json(200, { keys, ttlSeconds: parseInt(env.KEY_TTL_SECONDS || '2592000', 10) });
+  const ttlSeconds = parseInt(env.KEY_TTL_SECONDS, 10);
+  return json(200, { keys, ttlSeconds: ttlSeconds > 0 ? ttlSeconds : 2592000 });
 }
 
 // ---------- nonce (stateless: timestamp + random + HMAC) ----------
 
 async function makeNonce(env) {
-  const bytes = new Uint8Array(8 + 16);
+  const bytes = new Uint8Array(NONCE_PAYLOAD_BYTES);
   const now = BigInt(Date.now());
   for (let i = 0; i < 8; i++) bytes[i] = Number((now >> BigInt(8 * (7 - i))) & 0xffn);
   crypto.getRandomValues(bytes.subarray(8));
-  const mac = (await hmac(env, bytes)).slice(0, 16);
+  const mac = (await hmac(env, bytes)).slice(0, NONCE_MAC_BYTES);
   const out = new Uint8Array(bytes.length + mac.length);
   out.set(bytes); out.set(mac, bytes.length);
   return b64url(out);
@@ -98,10 +113,10 @@ async function verifyNonce(env, nonce) {
   if (typeof nonce !== 'string') return { ok: false, reason: 'missing' };
   let bytes;
   try { bytes = unb64url(nonce); } catch { return { ok: false, reason: 'malformed' }; }
-  if (bytes.length !== 8 + 16 + 16) return { ok: false, reason: 'malformed' };
-  const payload = bytes.subarray(0, 24);
-  const mac = (await hmac(env, payload)).slice(0, 16);
-  if (!constantTimeEqual(mac, bytes.subarray(24))) return { ok: false, reason: 'bad_signature' };
+  if (bytes.length !== NONCE_PAYLOAD_BYTES + NONCE_MAC_BYTES) return { ok: false, reason: 'malformed' };
+  const payload = bytes.subarray(0, NONCE_PAYLOAD_BYTES);
+  const mac = (await hmac(env, payload)).slice(0, NONCE_MAC_BYTES);
+  if (!constantTimeEqual(mac, bytes.subarray(NONCE_PAYLOAD_BYTES))) return { ok: false, reason: 'bad_signature' };
   let ts = 0n;
   for (let i = 0; i < 8; i++) ts = (ts << 8n) | BigInt(bytes[i]);
   const age = Date.now() - Number(ts);

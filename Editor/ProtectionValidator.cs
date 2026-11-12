@@ -84,7 +84,7 @@ namespace GameProtection.Editor
                 "No obfuscator detected. IL2CPP alone keeps class and method names readable, and public tools dump them for every " +
                 "Unity version. BitMono is free and the kit integrates it: download the UPM .tgz for your Unity version, then " +
                 "Package Manager > + > Add package from tarball. Already using another obfuscator? Click \"I use one\".",
-                "Get BitMono (free)", () => Application.OpenURL(BitMonoReleasesUrl));
+                "Get BitMono (free)", () => UnityEngine.Application.OpenURL(BitMonoReleasesUrl));
 
             yield return new ValidationIssue(IssueSeverity.Info, "Using a different obfuscator? Silence the warning above.",
                 "I use one", () =>

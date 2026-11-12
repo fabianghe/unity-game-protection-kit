@@ -5,10 +5,29 @@ All notable changes to this package are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Fixed
+- **The editor assembly did not compile** (`ProtectionValidator` called `Application.OpenURL` without the `UnityEngine` namespace), which took Setup, the validator, the build guards and every editor module with it.
+- **Key rotation locked players out of new content in Remote mode.** A game with a still-fresh key cache never asked the server for the new key, so bundles encrypted after a rotation failed to load until the cache expired (30 days by default). Content now asks for the exact key it needs (`ContentLock.RequestKey`), which refreshes the ring once.
+- **Addressables: bundles of unencrypted groups were encrypted too** when they shared a build folder with an encrypted group (the default layout), so demo groups and the shared shader bundle failed to load through the stock provider. Only bundles of groups on the Encrypted AssetBundle Provider are encrypted now.
+- `ContentLock.LoadBundleFromFile`, `LoadBundleFromFileAsync` and `LoadBundle` never closed the encrypted file, so every loaded bundle kept a file handle for the rest of the session. The file is closed once its bundle is unloaded (`ContentLock.UnloadBundle` closes it immediately).
+- A damaged key cache could be read as a ring of wrong keys, or throw. It is now authenticated (HMAC), written atomically, and anything unreadable counts as "no cache".
+- `DecryptingStream` is safe to read from Unity's loading threads.
+- `WaitForCompletion()` on an asset from an encrypted Addressables group threw "The ProvideHandle is invalid" (the handle was completed twice).
+- Releasing an Addressables bundle that is still loading no longer closes the stream under the load.
+- The stolen-copy notice is shown once per session, however often `RunNow` is called.
 - **Steam module did not compile**: `SteamTicketProofProvider` used the runtime's internal coroutine host from another assembly, so any project with Steamworks.NET installed got a compile error from the kit.
 - `RemoteKeyProvider` no longer wedges for the session when a proof provider throws or the key server answers with non-JSON: every waiting caller gets a result and the next request can retry.
 
+### Added
+- `ContentLock.RequestKey(keyId, callback)`, `ContentLock.UnloadBundle`, `ContentFormat.TryReadFileHeader`, `RemoteKeyProvider.RefreshForMissingKey`.
+- Key server test suite (`npm test` in `Server~/cloudflare-worker`, no dependencies) covering nonces, the dev secret, Steam and Play Integrity.
+- EditMode tests: AES-256-CTR against the NIST SP 800-38A vector, repeatable encryption, key cache integrity and upgrade.
+
 ### Changed
+- **Encryption is repeatable.** The nonce is a keyed hash of the content instead of a random number, so a bundle that didn't change between two builds is byte-identical on disk. With random nonces every build rewrote every encrypted bundle and players re-downloaded all of them with each patch. Bundles encrypted by earlier versions still load.
+- Key cache format (encrypted, then HMAC). Caches written by 0.3.0 are read once and upgraded, so updating never forces an offline player back online.
+- The game honours the key server's `ttlSeconds` (the shorter of it and Cache Days), and a cache dated in the future no longer counts as fresh.
+- Key server: nonces are 42 bytes, which encode to 56 base64url characters with no padding (Play Integrity takes a base64 nonce and echoes it back for comparison, so there is no padding to disagree about), request bodies are capped at 64 KB, and a missing `NONCE_SECRET` is reported as a configuration error. Existing games work with the new server unchanged.
+- `package.json` declares the built-in Unity modules the kit uses, so it compiles in projects that have disabled them.
 - Ownership tokens are plain 32-character hex (no `GPK-` prefix) and the scene canary object name varies per project, so markers can't be found and stripped by shape. Existing tokens are unchanged.
 - Validator: warns when `ContentLockKeys.asset` is tracked by git; detects LLObf as an obfuscator; BitMono messages say that metadata encryption blocks static dumpers only and that the kit's own runtime assembly stays unobfuscated.
 - README and guide rewritten around the 2026 threat picture: AI-driven decompilation, runtime inspectors with MCP, and clones made from trailers (new Layer 0 in the guide, new section in the playbook).

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -13,6 +14,7 @@ namespace GameProtection.Content
     ///   ContentLock.ProofProvider = new MyProof();          // modules (Steam) register theirs automatically
     ///   ContentLock.KeyProvider   = new MyKeyProvider();    // replace the whole key strategy
     ///   ContentLock.RequestKeys(result => ...);             // make sure keys are present (remote mode)
+    ///   ContentLock.UnloadBundle(bundle, true);             // unload and close the encrypted file behind it
     /// </summary>
     public static class ContentLock
     {
@@ -76,19 +78,96 @@ namespace GameProtection.Content
             else RequestKeys(onComplete);
         }
 
+        /// <summary>
+        /// Makes sure the key for one container is available, fetching or refreshing keys when needed. This is what
+        /// makes key rotation work in Remote mode: a player whose cached ring is still fresh doesn't have the new
+        /// key yet, so content encrypted with it triggers one extra request to the server.
+        /// The callback gets null on success, or an error code. It may run synchronously.
+        /// </summary>
+        public static void RequestKey(ulong keyId, Action<string> onDone)
+        {
+            if (TryGetKey(keyId, out _))
+            {
+                onDone?.Invoke(null);
+                return;
+            }
+
+            Action<KeyResult> recheck = result =>
+            {
+                if (TryGetKey(keyId, out _)) onDone?.Invoke(null);
+                else onDone?.Invoke(result.Ok ? "key_missing:" + ContentKey.FormatId(keyId) : "keys_unavailable:" + result.Error);
+            };
+
+            if (HasKeys && KeyProvider is RemoteKeyProvider remote) remote.RefreshForMissingKey(recheck);
+            else RequestKeys(recheck);
+        }
+
         // ---------- loading ----------
 
-        /// <summary>Plain or encrypted bundle from a local file. Synchronous; keys must already be available.</summary>
+        /// <summary>
+        /// Plain or encrypted bundle from a local file. Synchronous; keys must already be available.
+        /// Unload it with <see cref="UnloadBundle"/> (or bundle.Unload) as usual.
+        /// </summary>
         public static AssetBundle LoadBundleFromFile(string path)
         {
             if (!ContentFormat.IsEncryptedFile(path)) return AssetBundle.LoadFromFile(path);
-            return AssetBundle.LoadFromStream(OpenDecrypted(path));
+
+            ReleaseUnloadedStreams();
+            var stream = OpenDecrypted(path);
+            AssetBundle bundle;
+            try { bundle = AssetBundle.LoadFromStream(stream); }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
+            Track(bundle, stream);
+            return bundle;
         }
 
         public static AssetBundleCreateRequest LoadBundleFromFileAsync(string path)
         {
             if (!ContentFormat.IsEncryptedFile(path)) return AssetBundle.LoadFromFileAsync(path);
-            return AssetBundle.LoadFromStreamAsync(OpenDecrypted(path));
+
+            ReleaseUnloadedStreams();
+            var stream = OpenDecrypted(path);
+            AssetBundleCreateRequest request;
+            try { request = AssetBundle.LoadFromStreamAsync(stream); }
+            catch
+            {
+                stream.Dispose();
+                throw;
+            }
+            request.completed += _ => Track(request.assetBundle, stream);
+            return request;
+        }
+
+        /// <summary>Unloads a bundle and closes the file behind it right away (otherwise it is closed at the next load).</summary>
+        public static void UnloadBundle(AssetBundle bundle, bool unloadAllLoadedObjects)
+        {
+            if (bundle != null) bundle.Unload(unloadAllLoadedObjects);
+            ReleaseUnloadedStreams();
+        }
+
+        // Unity reads from the stream for as long as the bundle is loaded, so the stream can't be closed when loading
+        // finishes: it has to stay open until the bundle is unloaded. Unity has no "bundle unloaded" event, so the
+        // pairs are remembered here and checked on every load and unload.
+        static readonly List<KeyValuePair<AssetBundle, Stream>> OpenStreams = new List<KeyValuePair<AssetBundle, Stream>>();
+
+        static void Track(AssetBundle bundle, Stream stream)
+        {
+            if (bundle == null) stream.Dispose(); // the load failed
+            else OpenStreams.Add(new KeyValuePair<AssetBundle, Stream>(bundle, stream));
+        }
+
+        static void ReleaseUnloadedStreams()
+        {
+            for (var i = OpenStreams.Count - 1; i >= 0; i--)
+            {
+                if (OpenStreams[i].Key != null) continue; // Unity's == null: true once the bundle has been unloaded
+                OpenStreams[i].Value.Dispose();
+                OpenStreams.RemoveAt(i);
+            }
         }
 
         /// <summary>Plain or encrypted bundle bytes (e.g. downloaded). Keys must already be available.</summary>
@@ -158,16 +237,17 @@ namespace GameProtection.Content
                 yield break;
             }
 
-            var encrypted = isUrl ? ContentFormat.HasMagic(bytes) : ContentFormat.IsEncryptedFile(pathOrUrl);
-            if (encrypted && !HasKeys)
+            ContentFormat.Header header;
+            var encrypted = isUrl ? ContentFormat.TryReadHeader(bytes, out header) : ContentFormat.TryReadFileHeader(pathOrUrl, out header);
+            if (encrypted)
             {
-                KeyResult result = default;
+                string keyError = null;
                 var done = false;
-                RequestKeys(r => { result = r; done = true; });
+                RequestKey(header.KeyId, e => { keyError = e; done = true; });
                 while (!done) yield return null;
-                if (!result.Ok)
+                if (keyError != null)
                 {
-                    onDone?.Invoke(null, "keys_unavailable:" + result.Error);
+                    onDone?.Invoke(null, keyError);
                     yield break;
                 }
             }
@@ -202,6 +282,7 @@ namespace GameProtection.Content
             _configLoaded = false;
             _keyProvider = null;
             ProofProvider = null;
+            ReleaseUnloadedStreams();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

@@ -9,7 +9,7 @@ namespace GameProtection.Content
     ///   4  version (1)
     ///   5  reserved (3)
     ///   8  key id (8, big-endian) — lets the loader fail fast with a clear error on the wrong key
-    ///  16  nonce (16)
+    ///  16  nonce (16) — keyed hash of the plaintext, so identical content encrypts to identical bytes
     /// CTR mode keeps the payload the same length as the plaintext and makes random access possible,
     /// which is what AssetBundle.LoadFromStream needs.
     /// </summary>
@@ -68,6 +68,18 @@ namespace GameProtection.Content
             for (var i = 0; i < 8; i++) bytes[8 + i] = (byte)(keyId >> (8 * (7 - i)));
             Buffer.BlockCopy(nonce, 0, bytes, 16, NonceSize);
             return bytes;
+        }
+
+        /// <summary>Reads the header of a file. Returns false when the file is missing, unreadable or not our format.</summary>
+        public static bool TryReadFileHeader(string path, out Header header)
+        {
+            header = default;
+            try
+            {
+                using (var stream = File.OpenRead(path)) return TryReadHeader(stream, out header);
+            }
+            catch (IOException) { return false; }
+            catch (UnauthorizedAccessException) { return false; }
         }
 
         /// <summary>True when the file starts with our magic. Cheap: reads 4 bytes.</summary>

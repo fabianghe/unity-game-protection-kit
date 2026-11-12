@@ -14,6 +14,7 @@ namespace GameProtection.Content
         readonly long _payloadStart;
         readonly long _length;
         readonly bool _ownsSource;
+        readonly object _gate = new object(); // Unity reads bundle streams from its own loading threads
         long _position;
 
         /// <summary>Opens the plaintext view. The source must be positioned at the start of the container.</summary>
@@ -58,15 +59,21 @@ namespace GameProtection.Content
         {
             if (buffer == null) throw new ArgumentNullException(nameof(buffer));
             if (offset < 0 || count < 0 || offset + count > buffer.Length) throw new ArgumentOutOfRangeException();
-            if (_position >= _length || count == 0) return 0;
 
-            var toRead = (int)Math.Min(count, _length - _position);
-            if (_source.Position != _payloadStart + _position) _source.Seek(_payloadStart + _position, SeekOrigin.Begin);
+            // Seek + read + decrypt must happen as one step: the source position and the cipher's scratch buffers
+            // are shared state.
+            lock (_gate)
+            {
+                if (_position >= _length || count == 0) return 0;
 
-            var read = ContentFormat.ReadFully(_source, buffer, offset, toRead);
-            if (read > 0) _cipher.Apply(buffer, offset, read, _position);
-            _position += read;
-            return read;
+                var toRead = (int)Math.Min(count, _length - _position);
+                if (_source.Position != _payloadStart + _position) _source.Seek(_payloadStart + _position, SeekOrigin.Begin);
+
+                var read = ContentFormat.ReadFully(_source, buffer, offset, toRead);
+                if (read > 0) _cipher.Apply(buffer, offset, read, _position);
+                _position += read;
+                return read;
+            }
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -80,8 +87,11 @@ namespace GameProtection.Content
                 default: throw new ArgumentOutOfRangeException(nameof(origin));
             }
             if (target < 0) throw new IOException("Cannot seek before the beginning of the stream.");
-            _position = target;
-            return _position;
+            lock (_gate)
+            {
+                _position = target;
+                return _position;
+            }
         }
 
         public override void Flush() { }

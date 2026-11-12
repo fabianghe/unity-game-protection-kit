@@ -33,7 +33,17 @@ wrangler secret put ANDROID_CERT_SHA256            # optional, your Play app-sig
 wrangler secret put DEV_SHARED_SECRET
 ```
 
-Whenever you rotate a key in Unity, update `CONTENT_KEYS` here **before** shipping the build.
+Whenever you rotate a key in Unity, update `CONTENT_KEYS` here **before** shipping the build. Players don't have to wait for their cached keys to expire: the first time a game loads content encrypted with a key it doesn't have, it asks the server again.
+
+`KEY_TTL_SECONDS` (in `wrangler.toml`, default 30 days) is how long a game trusts its cached keys before refreshing them. The game uses this or its own **Cache Days** setting, whichever is shorter, and keeps working offline on the old keys if the refresh fails.
+
+## Test
+
+```bash
+npm test
+```
+
+Runs `worker.test.js` with Node 18+ and nothing else installed. Steam and Google are faked, so it needs no secrets and no network. Run it after any change to `worker.js`, especially a new proof type.
 
 ## Why demos must stay off this list
 

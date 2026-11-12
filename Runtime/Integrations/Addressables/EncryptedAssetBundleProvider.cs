@@ -70,25 +70,22 @@ namespace GameProtection.Addressables
             }
         }
 
-        // Plain bundles never wait for keys: only an encrypted container triggers a key request.
-        void WithKeys(Action then)
+        // Plain bundles never wait for keys: only an encrypted container triggers a key request, and it asks for the
+        // exact key the container names, so content built after a key rotation refreshes a cached ring by itself.
+        void WithKey(ulong keyId, Action then)
         {
-            if (ContentLock.HasKeys)
-            {
-                then();
-                return;
-            }
             _waitingForKeys = true;
-            ContentLock.RequestKeys(result =>
+            ContentLock.RequestKey(keyId, error =>
             {
                 _waitingForKeys = false;
                 if (_completed) return;
-                if (result.Ok)
+                if (error != null)
                 {
-                    try { then(); }
-                    catch (Exception e) { Fail(e.GetType().Name + ": " + e.Message); }
+                    Fail("Content key unavailable (" + error + ") for " + _path);
+                    return;
                 }
-                else Fail("Content keys unavailable: " + result.Error);
+                try { then(); }
+                catch (Exception e) { Fail(e.GetType().Name + ": " + e.Message); }
             });
         }
 
@@ -101,14 +98,14 @@ namespace GameProtection.Addressables
             }
 
             var crc = _options != null ? _options.Crc : 0u;
-            if (!ContentFormat.IsEncryptedFile(_path))
+            if (!ContentFormat.TryReadFileHeader(_path, out var header))
             {
                 _request = AssetBundle.LoadFromFileAsync(_path, crc);
                 _request.completed += _ => OnLoaded();
                 return;
             }
 
-            WithKeys(() =>
+            WithKey(header.KeyId, () =>
             {
                 _stream = ContentLock.OpenDecrypted(_path);
                 _request = AssetBundle.LoadFromStreamAsync(_stream, crc);
@@ -146,14 +143,14 @@ namespace GameProtection.Addressables
             }
 
             var crc = _options != null ? _options.Crc : 0u;
-            if (!ContentFormat.HasMagic(bytes))
+            if (!ContentFormat.TryReadHeader(bytes, out var header))
             {
                 _request = AssetBundle.LoadFromMemoryAsync(bytes, crc);
                 _request.completed += _ => OnLoaded();
                 return;
             }
 
-            WithKeys(() =>
+            WithKey(header.KeyId, () =>
             {
                 _request = AssetBundle.LoadFromMemoryAsync(DecryptBytes(bytes), crc);
                 _request.completed += _ => OnLoaded();
@@ -203,10 +200,17 @@ namespace GameProtection.Addressables
 
             if (_request != null)
             {
-                _bundle = _request.assetBundle; // blocks until loaded
-                _request = null;
-                if (_bundle != null) Succeed();
-                else Fail("AssetBundle failed to load: " + _path);
+                // Reading assetBundle blocks until the load has finished, and Unity raises the request's completed
+                // event from inside that call, so OnLoaded has usually finished the handle by the time it returns.
+                // Completing a handle twice throws.
+                var bundle = _request.assetBundle;
+                if (!_completed)
+                {
+                    _bundle = bundle;
+                    _request = null;
+                    if (_bundle != null) Succeed();
+                    else Fail("AssetBundle failed to load: " + _path);
+                }
             }
             return _completed;
         }
@@ -227,6 +231,21 @@ namespace GameProtection.Addressables
 
         public void Unload()
         {
+            // Released while still loading: stop what is in flight first, so nothing completes into a released
+            // handle and the stream isn't closed under a load that is still reading it.
+            _completed = true;
+            if (_download != null)
+            {
+                var request = _download.webRequest;
+                _download = null;
+                request.Dispose(); // aborts a request that is still running
+            }
+            if (_request != null)
+            {
+                _bundle = _request.assetBundle; // blocks until the load has finished
+                _request = null;
+            }
+
             if (_bundle != null)
             {
                 _bundle.Unload(true);
